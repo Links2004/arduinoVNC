@@ -21,9 +21,13 @@ class ILI9341VNC: public VNCdisplay {
         inline uint32_t getHeight(void);
         inline uint32_t getWidth(void);
 
-        int draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data);
-        int draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t r, uint8_t g, uint8_t b);
-        int copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h);
+        inline int draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data);
+        inline int draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t r, uint8_t g, uint8_t b);
+        inline int copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h);
+
+        inline void area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h);
+        inline void area_update_data(uint8_t *data, uint32_t pixel);
+        inline void area_update_end(void);
 
     private:
         Adafruit_ILI9341 * tft;

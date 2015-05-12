@@ -133,6 +133,10 @@ class VNCdisplay {
         virtual int draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t r, uint8_t g, uint8_t b) = 0;
         virtual int copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h) = 0;
 
+        virtual void area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h) = 0;
+        virtual void area_update_data(uint8_t *data, uint32_t pixel) = 0;
+        virtual void area_update_end(void) = 0;
+
 };
 
 class arduinoVNC {
@@ -178,8 +182,6 @@ class arduinoVNC {
         int rfb_send_key_event(int key, int down_flag);
 
         void rfb_get_rgb_from_data(int *r, int *g, int *b, char *data);
-
-
 
         /// Encode handling
         int _handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader);

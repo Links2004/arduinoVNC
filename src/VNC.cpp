@@ -31,6 +31,7 @@ arduinoVNC::arduinoVNC(VNCdisplay * _display) {
     port = 5900;
     display = _display;
     opt = {0};
+    sock = 0;
 }
 
 void arduinoVNC::begin(char *_host, uint16_t _port) {
@@ -646,13 +647,14 @@ void arduinoVNC::rfb_get_rgb_from_data(int *r, int *g, int *b, char *data) {
 //#############################################################################################
 
 int arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
-    DEBUG_VNC("_handle_raw_encoded_message x: %d y: %d w: %d h: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
 
     uint32_t size = (opt.client.bpp / 8 * rectheader.r.w) * rectheader.r.h;
     char *buf = NULL;
 
-    // max use 33% of the free HEAP
-    if(size < (ESP.getFreeHeap() / 3)) {
+    DEBUG_VNC("_handle_raw_encoded_message x: %d y: %d w: %d h: %d bytes: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, size);
+
+    // max use 20% of the free HEAP
+    if(size < (ESP.getFreeHeap() / 4)) {
         buf = (char *) malloc(size);
     } else {
         DEBUG_VNC("_handle_raw_encoded_message update to big for ram split %d! Free: %d\n", size, ESP.getFreeHeap());

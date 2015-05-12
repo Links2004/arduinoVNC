@@ -27,14 +27,9 @@ uint32_t ILI9341VNC::getHeight(void) {
 }
 
 int ILI9341VNC::draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data) {
-    uint32_t pixel = w * h;
-    uint16_t * color = (uint16_t *) data;
-    tft->setAddrWindow(x, y, x + w, y + h);
-
-    while(pixel--) {
-        tft->pushColor(*color);
-        color++;
-    }
+    tft->area_update_start(x, y, w, h);
+    tft->area_update_data(data, (w*h));
+    tft->area_update_end();
     return 1;
 }
 
@@ -47,5 +42,17 @@ int ILI9341VNC::copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint3
     return 0;
 }
 
+
+void ILI9341VNC::area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h){
+    tft->area_update_start(x, y, w, h);
+}
+
+void ILI9341VNC::area_update_data(uint8_t *data, uint32_t pixel) {
+    tft->area_update_data(data, pixel);
+}
+
+void ILI9341VNC::area_update_end(void) {
+    tft->area_update_end();
+}
 
 
