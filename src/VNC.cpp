@@ -34,23 +34,28 @@ arduinoVNC::arduinoVNC(VNCdisplay * _display) {
     sock = 0;
 }
 
-void arduinoVNC::begin(char *_host, uint16_t _port) {
+void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate) {
     host = _host;
     port = _port;
+    onlyFullUpdate = _onlyFullUpdate;
 
     opt.client.width = display->getWidth();
     opt.client.height = display->getHeight();
 
     opt.client.bpp = 16;
     opt.client.depth = 16;
-    opt.client.bigendian = 0;
+
+    opt.client.bigendian = 1;
     opt.client.truecolour = 1;
+
     opt.client.redmax = 31;
     opt.client.greenmax = 63;
     opt.client.bluemax = 31;
+
     opt.client.redshift = 11;
     opt.client.greenshift = 5;
     opt.client.blueshift = 0;
+
     opt.client.compresslevel = 99;
     opt.client.quality = 99;
 
@@ -63,12 +68,12 @@ void arduinoVNC::begin(char *_host, uint16_t _port) {
     opt.v_offset = 0;
 }
 
-void arduinoVNC::begin(const char *_host, uint16_t _port) {
-    begin((char *) _host, _port);
+void arduinoVNC::begin(const char *_host, uint16_t _port, bool _onlyFullUpdate) {
+    begin((char *) _host, _port, _onlyFullUpdate);
 }
 
-void arduinoVNC::begin(String _host, uint16_t _port) {
-    begin(_host.c_str(), _port);
+void arduinoVNC::begin(String _host, uint16_t _port, bool _onlyFullUpdate) {
+    begin(_host.c_str(), _port, _onlyFullUpdate);
 }
 
 void arduinoVNC::loop(void) {
@@ -116,11 +121,16 @@ void arduinoVNC::loop(void) {
 
     } else {
         if(!rfb_handle_server_message()) {
-            DEBUG_VNC("rfb_handle_server_message faild.\n");
+            //DEBUG_VNC("rfb_handle_server_message faild.\n");
             return;
         }
-        rfb_send_update_request(1);
+
+        rfb_send_update_request(onlyFullUpdate ? 0 : 1);
     }
+}
+
+int arduinoVNC::forceFullUpdate(void) {
+   return rfb_send_update_request(1);
 }
 
 //#############################################################################################
@@ -132,8 +142,8 @@ void arduinoVNC::loop(void) {
 int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
     unsigned long t = millis();
     size_t len;
-    //DEBUG_VNC("read_from_rfb_server %d...\n", n);
-
+    // DEBUG_VNC("read_from_rfb_server %d...\n", n);
+/*
     if(n > 2 * 1024 * 1042) {
         DEBUG_VNC("read_from_rfb_server N: %d 0x%08X make no sens!\n", n, n);
         return 0;
@@ -143,6 +153,7 @@ int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
         DEBUG_VNC("read_from_rfb_server out == NULL!\n");
         return 0;
     }
+*/
 
     while(n > 0) {
         if(!TCPclient.connected()) {
@@ -150,8 +161,8 @@ int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
             return 0;
         }
         while(!TCPclient.available()) {
-            if((millis() - t) > 5000) {
-                DEBUG_VNC("Receive TIMEOUT!\n");
+            if((millis() - t) > 150) {
+                // DEBUG_VNC("Receive TIMEOUT!\n");
                 return 0;
             }
             delay(0);
@@ -160,17 +171,12 @@ int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
         len = TCPclient.read((uint8_t*) out, n);
         if(len) {
             t = millis();
-            if(len > n) {
-                DEBUG_VNC("Receive %d left need only %d?!\n", len, n);
-            } else {
-                out += len;
-                n -= len;
-                //DEBUG_VNC("Receive %d left %d!\n", len, n);
-            }
+            out += len;
+            n -= len;
+            // DEBUG_VNC("Receive %d left %d!\n", len, n);
         } else {
-            //DEBUG_VNC("Receive %d left %d!\n", len, n);
+            // DEBUG_VNC("Receive %d left %d!\n", len, n);
         }
-        delay(0);
     }
     return 1;
 }

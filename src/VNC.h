@@ -143,13 +143,16 @@ class arduinoVNC {
     public:
         arduinoVNC(VNCdisplay * display);
 
-        void begin(char *host, uint16_t port = 5900);
-        void begin(const char *host, uint16_t port = 5900);
-        void begin(String host, uint16_t port = 5900);
+        void begin(char *host, uint16_t port = 5900, bool onlyFullUpdate = false);
+        void begin(const char *host, uint16_t port = 5900, bool onlyFullUpdate = false);
+        void begin(String host, uint16_t port = 5900, bool onlyFullUpdate= false);
 
         void loop(void);
 
+        int forceFullUpdate(void);
+
     private:
+        bool onlyFullUpdate;
         int port;
         String host;
         VNCdisplay * display;
