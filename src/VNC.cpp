@@ -163,11 +163,12 @@ int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
             if(len > n) {
                 DEBUG_VNC("Receive %d left need only %d?!\n", len, n);
             } else {
+                out += len;
                 n -= len;
-                //   DEBUG_VNC("Receive %d left %d!\n", len, n);
+                //DEBUG_VNC("Receive %d left %d!\n", len, n);
             }
         } else {
-            // DEBUG_VNC("Receive %d left %d!\n", len, n);
+            //DEBUG_VNC("Receive %d left %d!\n", len, n);
         }
         delay(0);
     }
@@ -648,52 +649,52 @@ void arduinoVNC::rfb_get_rgb_from_data(int *r, int *g, int *b, char *data) {
 
 int arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
 
-    uint32_t size = (opt.client.bpp / 8 * rectheader.r.w) * rectheader.r.h;
+    uint32_t maxSize = (ESP.getFreeHeap() / 4); // max use 20% of the free HEAP
+    uint32_t msgPixelTotal = (rectheader.r.w * rectheader.r.h);
+    uint32_t msgPixel = msgPixelTotal;
+    uint32_t msgSize = (msgPixel * (opt.client.bpp / 8));
+
     char *buf = NULL;
 
-    DEBUG_VNC("_handle_raw_encoded_message x: %d y: %d w: %d h: %d bytes: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, size);
+    DEBUG_VNC("[_handle_raw_encoded_message] x: %d y: %d w: %d h: %d bytes: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, msgSize);
 
-    // max use 20% of the free HEAP
-    if(size < (ESP.getFreeHeap() / 4)) {
-        buf = (char *) malloc(size);
-    } else {
-        DEBUG_VNC("_handle_raw_encoded_message update to big for ram split %d! Free: %d\n", size, ESP.getFreeHeap());
-        size = (opt.client.bpp / 8);
+    if(msgSize > maxSize) {
+        msgPixel = (maxSize / (opt.client.bpp / 8));
+        msgSize = (msgPixel * (opt.client.bpp / 8));
+        DEBUG_VNC("[_handle_raw_encoded_message] update to big for ram split %d! Free: %d\n", msgSize, ESP.getFreeHeap());
     }
-    if(!buf) {
-        //to less memory split in little blocks
-        // while(size) {
 
-        for(uint32_t y = rectheader.r.y; y < (rectheader.r.h + rectheader.r.y); y++) {
-            // for each column
-            for(uint32_t x = rectheader.r.x; x < (rectheader.r.w + rectheader.r.x); x++) {
-                buf = (char *) malloc(size);
-                if(!buf) {
-                    DEBUG_VNC("TO LESS MEMEORE TO HANDLE DATA!");
-                    return 0;
-                }
+    DEBUG_VNC("[_handle_raw_encoded_message] msgPixel: %d msgSize: %d\n", msgPixel, msgSize);
 
-                if(!read_from_rfb_server(sock, buf, size))
-                    return 0;
+    display->area_update_start(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
 
-                // send data to display
-                display->draw_area(x, y, 1, 1, (uint8_t *) buf);
+    while(msgPixelTotal) {
+       DEBUG_VNC("[_handle_raw_encoded_message] Pixel left: %d\n", msgPixelTotal);
 
-                free(buf);
-            }
+        if(msgPixelTotal < msgPixel) {
+            msgPixel = msgPixelTotal;
+            msgSize = (msgPixel * (opt.client.bpp / 8));
         }
-        //  }
-    } else {
-        if(!read_from_rfb_server(sock, buf, size)) {
+
+        buf = (char *) malloc(msgSize);
+        if(!buf) {
+            DEBUG_VNC("TO LESS MEMEORE TO HANDLE DATA!");
             return 0;
         }
 
-        // send data to display
-        display->draw_area(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, (uint8_t *) buf);
+        if(!read_from_rfb_server(sock, buf, msgSize)) {
+            return 0;
+        }
+
+        display->area_update_data(buf, msgPixel);
 
         free(buf);
-        return 1;
+
+        msgPixelTotal -= msgPixel;
     }
+
+    display->area_update_end();
+    DEBUG_VNC("[_handle_raw_encoded_message] ------------------------ Fin ------------------------\n");
 }
 
 int arduinoVNC::_handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {

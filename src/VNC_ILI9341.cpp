@@ -47,8 +47,8 @@ void ILI9341VNC::area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t 
     tft->area_update_start(x, y, w, h);
 }
 
-void ILI9341VNC::area_update_data(uint8_t *data, uint32_t pixel) {
-    tft->area_update_data(data, pixel);
+void ILI9341VNC::area_update_data(char *data, uint32_t pixel) {
+    tft->area_update_data((uint8_t *)data, pixel);
 }
 
 void ILI9341VNC::area_update_end(void) {

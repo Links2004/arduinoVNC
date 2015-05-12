@@ -26,7 +26,7 @@ class ILI9341VNC: public VNCdisplay {
         inline int copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h);
 
         inline void area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h);
-        inline void area_update_data(uint8_t *data, uint32_t pixel);
+        inline void area_update_data(char *data, uint32_t pixel);
         inline void area_update_end(void);
 
     private:
