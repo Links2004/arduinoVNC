@@ -26,22 +26,19 @@ uint32_t ILI9341VNC::getHeight(void) {
     return tft->getHeight();
 }
 
-int ILI9341VNC::draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data) {
+void ILI9341VNC::draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data) {
     tft->area_update_start(x, y, w, h);
     tft->area_update_data(data, (w*h));
     tft->area_update_end();
-    return 1;
 }
 
-int ILI9341VNC::draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t r, uint8_t g, uint8_t b) {
+void ILI9341VNC::draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t r, uint8_t g, uint8_t b) {
     tft->fillRect(x, y, w, h, tft->color565(r, g, b));
-    return 1;
 }
 
-int ILI9341VNC::copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h) {
-    return 0;
-}
+void ILI9341VNC::copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h) {
 
+}
 
 void ILI9341VNC::area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h){
     tft->area_update_start(x, y, w, h);

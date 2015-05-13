@@ -21,9 +21,9 @@ class ILI9341VNC: public VNCdisplay {
         inline uint32_t getHeight(void);
         inline uint32_t getWidth(void);
 
-        inline int draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data);
-        inline int draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t r, uint8_t g, uint8_t b);
-        inline int copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h);
+        inline void draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data);
+        inline void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t r, uint8_t g, uint8_t b);
+        inline void copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h);
 
         inline void area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h);
         inline void area_update_data(char *data, uint32_t pixel);

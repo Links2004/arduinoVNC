@@ -400,7 +400,7 @@ typedef struct {
  * the form [<bgpixel><subrect><subrect>...] where each <subrect> is
  * [<pixel><rfbRectangle>].
  */
-#ifdef VNC_CORRE
+
 typedef struct {
     CARD32 nSubrects;
 } rfbRREHeader;
@@ -423,7 +423,6 @@ typedef struct {
 } rfbCoRRERectangle;
 
 #define sz_rfbCoRRERectangle 4
-#endif
 
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
