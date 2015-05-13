@@ -12,25 +12,26 @@
 #include "VNC_ILI9341.h"
 #include "VNC.h"
 
-class ILI9341VNC: public VNCdisplay {
+class ILI9341VNC: public VNCdisplay, public Adafruit_ILI9341 {
     public:
-        ILI9341VNC(Adafruit_ILI9341 * _tft);
+        ILI9341VNC(int8_t _CS, int8_t _DC, int8_t _RST);
 
-        inline bool hasCopyRect(void);
+        bool hasCopyRect(void);
 
-        inline uint32_t getHeight(void);
-        inline uint32_t getWidth(void);
+        uint32_t getHeight(void);
+        uint32_t getWidth(void);
 
-        inline void draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data);
-        inline void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t r, uint8_t g, uint8_t b);
-        inline void copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h);
+        void draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data);
 
-        inline void area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h);
-        inline void area_update_data(char *data, uint32_t pixel);
-        inline void area_update_end(void);
 
-    private:
-        Adafruit_ILI9341 * tft;
+        void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color);
+
+        void copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h);
+
+        void area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h);
+        void area_update_data(char *data, uint32_t pixel);
+        void area_update_end(void);
+
 };
 
 #endif /* MARKUS_VNC_ILI9341_H_ */

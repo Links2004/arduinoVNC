@@ -477,6 +477,24 @@ typedef struct {
 #define rfbHextileExtractW(byte) (((byte) >> 4) + 1)
 #define rfbHextileExtractH(byte) (((byte) & 0xf) + 1)
 
+typedef struct {
+        unsigned color :16;
+        unsigned y :4;
+        unsigned x :4;
+
+        unsigned h :4;
+        unsigned w :4;
+} HextileSubrectsColoured_t;
+
+
+typedef struct {
+        unsigned y :4;
+        unsigned x :4;
+
+        unsigned h :4;
+        unsigned w :4;
+} HextileSubrects_t;
+
 #ifdef VNC_ZLIB
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  * zlib - zlib compressed Encoding.  We have an rfbZlibHeader structure

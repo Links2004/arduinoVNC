@@ -10,8 +10,10 @@
 
 #define USE_ARDUINO_TCP
 
-#define VNC_CORRE
+//#define VNC_CORRE
 #define VNC_HEXTILE
+
+#define FPS_BENCHMARK
 
 #include "Arduino.h"
 
@@ -129,11 +131,12 @@ class VNCdisplay {
         virtual ~VNCdisplay() {}
         virtual bool hasCopyRect(void) = 0;
 
-        virtual uint32_t getHeight(void)= 0;
-        virtual uint32_t getWidth(void)= 0;
+        virtual uint32_t getHeight(void) = 0;
+        virtual uint32_t getWidth(void) = 0;
 
         virtual void draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data) = 0;
-        virtual void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t r, uint8_t g, uint8_t b) = 0;
+
+        virtual void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color) = 0;
         virtual void copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h) = 0;
 
         virtual void area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h) = 0;

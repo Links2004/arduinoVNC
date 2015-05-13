@@ -5,12 +5,15 @@
  *      Author: Markus Sattler
  */
 
+#include <Arduino.h>
+
 #include <unistd.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <math.h>
 
 #include "VNC.h"
+#include "frameBuffer.h"
 
 #ifdef VNC_TIGHT
 #include "tight.h"
@@ -37,7 +40,12 @@ arduinoVNC::arduinoVNC(VNCdisplay * _display) {
 void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate) {
     host = _host;
     port = _port;
+
+#ifdef FPS_BENCHMARK
+    onlyFullUpdate = true;
+#else
     onlyFullUpdate = _onlyFullUpdate;
+#endif
 
     opt.client.width = display->getWidth();
     opt.client.height = display->getHeight();
@@ -142,8 +150,9 @@ int arduinoVNC::forceFullUpdate(void) {
 int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
     unsigned long t = millis();
     size_t len;
-    // DEBUG_VNC("read_from_rfb_server %d...\n", n);
     /*
+     DEBUG_VNC("read_from_rfb_server %d...\n", n);
+
      if(n > 2 * 1024 * 1042) {
      DEBUG_VNC("read_from_rfb_server N: %d 0x%08X make no sens!\n", n, n);
      return 0;
@@ -154,7 +163,6 @@ int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
      return 0;
      }
      */
-
     while(n > 0) {
         if(!TCPclient.connected()) {
             DEBUG_VNC("Receive not connected!\n");
@@ -173,10 +181,11 @@ int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
             t = millis();
             out += len;
             n -= len;
-            // DEBUG_VNC("Receive %d left %d!\n", len, n);
+            //DEBUG_VNC("Receive %d left %d!\n", len, n);
         } else {
-            // DEBUG_VNC("Receive %d left %d!\n", len, n);
+            //DEBUG_VNC("Receive %d left %d!\n", len, n);
         }
+        delay(0);
     }
     return 1;
 }
@@ -212,7 +221,7 @@ int arduinoVNC::rfb_connect_to_server(const char *host, int port) {
         return 0;
     }
 
-	DEBUG_VNC("[rfb_connect_to_server] Connected.\n");
+    DEBUG_VNC("[rfb_connect_to_server] Connected.\n");
     return 1;
 #else
     struct hostent *he=NULL;
@@ -505,89 +514,102 @@ int arduinoVNC::rfb_handle_server_message() {
     rfbServerToClientMsg msg = { 0 };
     rfbFramebufferUpdateRectHeader rectheader = { 0 };
 
-    if(!read_from_rfb_server(sock, (char*) &msg, 1))
-        return 0;
-    switch(msg.type) {
-        case rfbFramebufferUpdate:
-            read_from_rfb_server(sock, ((char*) &msg.fu) + 1, sz_rfbFramebufferUpdateMsg - 1);
-            msg.fu.nRects = Swap16IfLE(msg.fu.nRects);
-            for(uint16_t i = 0; i < msg.fu.nRects; i++) {
-                read_from_rfb_server(sock, (char*) &rectheader,
-                sz_rfbFramebufferUpdateRectHeader);
-                rectheader.r.x = Swap16IfLE(rectheader.r.x);
-                rectheader.r.y = Swap16IfLE(rectheader.r.y);
-                rectheader.r.w = Swap16IfLE(rectheader.r.w);
-                rectheader.r.h = Swap16IfLE(rectheader.r.h);
-                rectheader.encoding = Swap32IfLE(rectheader.encoding);
-                //SoftCursorLockArea(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
-                switch(rectheader.encoding) {
-                    case rfbEncodingRaw:
-                        _handle_raw_encoded_message(rectheader);
-                        break;
-                    case rfbEncodingCopyRect:
-                        _handle_copyrect_encoded_message(rectheader);
-                        break;
+    if(TCPclient.available()) {
+        if(!read_from_rfb_server(sock, (char*) &msg, 1)) {
+            return 0;
+        }
+        switch(msg.type) {
+            case rfbFramebufferUpdate:
+                read_from_rfb_server(sock, ((char*) &msg.fu) + 1, sz_rfbFramebufferUpdateMsg - 1);
+                msg.fu.nRects = Swap16IfLE(msg.fu.nRects);
+                for(uint16_t i = 0; i < msg.fu.nRects; i++) {
+                    read_from_rfb_server(sock, (char*) &rectheader,
+                    sz_rfbFramebufferUpdateRectHeader);
+                    rectheader.r.x = Swap16IfLE(rectheader.r.x);
+                    rectheader.r.y = Swap16IfLE(rectheader.r.y);
+                    rectheader.r.w = Swap16IfLE(rectheader.r.w);
+                    rectheader.r.h = Swap16IfLE(rectheader.r.h);
+                    rectheader.encoding = Swap32IfLE(rectheader.encoding);
+                    //SoftCursorLockArea(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+
+#ifdef FPS_BENCHMARK
+                    unsigned long encodingStart = micros();
+#endif
+                    switch(rectheader.encoding) {
+                        case rfbEncodingRaw:
+                            _handle_raw_encoded_message(rectheader);
+                            break;
+                        case rfbEncodingCopyRect:
+                            _handle_copyrect_encoded_message(rectheader);
+                            break;
 #ifdef VNC_CORRE
-                    case rfbEncodingRRE:
-                        _handle_rre_encoded_message(rectheader);
-                        break;
-                    case rfbEncodingCoRRE:
-                        _handle_corre_encoded_message(rectheader);
-                        break;
+                            case rfbEncodingRRE:
+                            _handle_rre_encoded_message(rectheader);
+                            break;
+                            case rfbEncodingCoRRE:
+                            _handle_corre_encoded_message(rectheader);
+                            break;
 #endif
 #ifdef VNC_HEXTILE
-                    case rfbEncodingHextile:
-                        _handle_hextile_encoded_message(rectheader);
-                        break;
+                            case rfbEncodingHextile:
+                            _handle_hextile_encoded_message(rectheader);
+                            break;
 #endif
 #ifdef VNC_TIGHT
-                        case rfbEncodingTight:
-                        _handle_tight_encoded_message(rectheader);
-                        break;
+                            case rfbEncodingTight:
+                            _handle_tight_encoded_message(rectheader);
+                            break;
 #endif
 #ifdef VNC_ZLIB
-                        case rfbEncodingZlib:
-                        _handle_zlib_encoded_message(rectheader);
-                        break;
+                            case rfbEncodingZlib:
+                            _handle_zlib_encoded_message(rectheader);
+                            break;
 #endif
-                    case rfbEncodingRichCursor:
-                        _handle_richcursor_message(rectheader);
-                        break;
-                    case rfbEncodingLastRect:
-                        DEBUG_VNC("LAST\n");
-                        break;
-                    default:
-                        DEBUG_VNC("Unknown encoding 0x%08X\n", rectheader.encoding);
-                        return 0;
-                        break;
+                        case rfbEncodingRichCursor:
+                            _handle_richcursor_message(rectheader);
+                            break;
+                        case rfbEncodingLastRect:
+                            DEBUG_VNC("LAST\n");
+                            break;
+                        default:
+                            DEBUG_VNC("Unknown encoding 0x%08X\n", rectheader.encoding);
+                            return 0;
+                            break;
+                    }
+
+#ifdef FPS_BENCHMARK
+                    unsigned long encodingTime = micros() - encodingStart;
+                    double fps = ((double) (1 * 1000 * 1000) / (double) encodingTime);
+                    os_printf("[Benchmark][0x%08X]\t us: %d \tfps: %s \tHeap: %d\n", rectheader.encoding, encodingTime, String(fps, 2).c_str(), ESP.getFreeHeap());
+#endif
+                    /* Now we may discard "soft cursor locks". */
+                    //SoftCursorUnlockScreen();
                 }
-                /* Now we may discard "soft cursor locks". */
-                //SoftCursorUnlockScreen();
-            }
-            break;
-        case rfbSetColourMapEntries:
-            DEBUG_VNC("SetColourMapEntries\n");
-            read_from_rfb_server(sock, ((char*) &msg.scme) + 1, sz_rfbSetColourMapEntriesMsg - 1);
-            break;
-        case rfbBell:
-            DEBUG_VNC("Bell message. Unimplemented.\n");
-            break;
-        case rfbServerCutText:
-            DEBUG_VNC("ServerCutText. Unimplemented.\n");
-            read_from_rfb_server(sock, ((char*) &msg.sct) + 1,
-            sz_rfbServerCutTextMsg - 1);
-            size = Swap32IfLE(msg.sct.length);
-            buf = (char *) malloc(sizeof(char) * size);
-            read_from_rfb_server(sock, buf, size);
-            buf[size] = 0;
-            DEBUG_VNC("%s\n", buf);
-            free(buf);
-            break;
-        default:
-            DEBUG_VNC("Unknown server message. Type: %i\n", msg.type);
-            TCPclient.stop();
-            return 0;
-            break;
+                break;
+            case rfbSetColourMapEntries:
+                DEBUG_VNC("SetColourMapEntries\n");
+                read_from_rfb_server(sock, ((char*) &msg.scme) + 1, sz_rfbSetColourMapEntriesMsg - 1);
+                break;
+            case rfbBell:
+                DEBUG_VNC("Bell message. Unimplemented.\n");
+                break;
+            case rfbServerCutText:
+                DEBUG_VNC("ServerCutText. Unimplemented.\n");
+                read_from_rfb_server(sock, ((char*) &msg.sct) + 1,
+                sz_rfbServerCutTextMsg - 1);
+                size = Swap32IfLE(msg.sct.length);
+                buf = (char *) malloc(sizeof(char) * size);
+                read_from_rfb_server(sock, buf, size);
+                buf[size] = 0;
+                DEBUG_VNC("%s\n", buf);
+                free(buf);
+                break;
+            default:
+                DEBUG_VNC("Unknown server message. Type: %d\n", msg.type);
+                TCPclient.stop();
+                return 0;
+                break;
+        }
     }
     return (1);
 }
@@ -693,6 +715,7 @@ int arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader recth
         }
 
         if(!read_from_rfb_server(sock, buf, msgSize)) {
+            free(buf);
             return 0;
         }
 
@@ -732,12 +755,12 @@ int arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader recth
 
     colour = (char *) malloc(sizeof(opt.client.bpp / 8));
     if(!read_from_rfb_server(sock, (char *) &header, sz_rfbRREHeader))
-        return 0;
+    return 0;
     header.nSubrects = Swap32IfLE(header.nSubrects);
 
     /* draw background rect */
     if(!read_from_rfb_server(sock, colour, opt.client.bpp / 8))
-        return 0;
+    return 0;
     rfb_get_rgb_from_data(&r, &g, &b, colour);
 
     display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, r, g, b);
@@ -745,13 +768,13 @@ int arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader recth
     /* subrect pixel values */
     for(uint32_t i = 0; i < header.nSubrects; i++) {
         if(!read_from_rfb_server(sock, colour, opt.client.bpp / 8))
-            return 0;
+        return 0;
         rfb_get_rgb_from_data(&r, &g, &b, colour);
         if(!read_from_rfb_server(sock, (char *) &rect, sizeof(rect)))
-            return 0;
+        return 0;
         display->draw_rect(
-        Swap16IfLE(rect[0]) + rectheader.r.x,
-        Swap16IfLE(rect[1]) + rectheader.r.y, Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), r, g, b);
+                Swap16IfLE(rect[0]) + rectheader.r.x,
+                Swap16IfLE(rect[1]) + rectheader.r.y, Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), r, g, b);
     }
     free(colour);
     return 1;
@@ -765,22 +788,22 @@ int arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader rec
 
     colour = (char *) malloc(sizeof(opt.client.bpp / 8));
     if(!read_from_rfb_server(sock, (char *) &header, sz_rfbRREHeader))
-        return 0;
+    return 0;
     header.nSubrects = Swap32IfLE(header.nSubrects);
 
     /* draw background rect */
     if(!read_from_rfb_server(sock, colour, opt.client.bpp / 8))
-        return 0;
+    return 0;
     rfb_get_rgb_from_data(&r, &g, &b, colour);
     display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, r, g, b);
 
     /* subrect pixel values */
     for(uint32_t i = 0; i < header.nSubrects; i++) {
         if(!read_from_rfb_server(sock, colour, opt.client.bpp / 8))
-            return 0;
+        return 0;
         rfb_get_rgb_from_data(&r, &g, &b, colour);
         if(!read_from_rfb_server(sock, (char *) &rect, sizeof(rect)))
-            return 0;
+        return 0;
         display->draw_rect(rect[0] + rectheader.r.x, rect[1] + rectheader.r.y, rect[2], rect[3], r, g, b);
     }
     free(colour);
@@ -790,17 +813,16 @@ int arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader rec
 
 #ifdef VNC_HEXTILE
 int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
-    int rect_x, rect_y, rect_w, rect_h, i = 0, j = 0, n;
-    int tile_w = 16, tile_h = 16;
-    int remaining_w, remaining_h;
+    uint32_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
+    uint32_t rect_xW, rect_yW;
+
+    uint32_t tile_w = 16, tile_h = 16;
+    uint32_t remaining_w, remaining_h;
+
     CARD8 subrect_encoding;
-    int bpp = opt.client.bpp / 8;
-    int nr_subr = 0;
-    int x, y, w, h;
-    int r = 0, g = 0, b = 0;
-    int fg_r = 0, fg_g = 0, fg_b = 0;
-    int bg_r = 0, bg_g = 0, bg_b = 0;
-    char * buffer = NULL;
+
+    FrameBuffer fb = FrameBuffer();
+
     rect_w = remaining_w = rectheader.r.w;
     rect_h = remaining_h = rectheader.r.h;
     rect_x = rectheader.r.x;
@@ -808,94 +830,123 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
 
     /* the rect is divided into tiles of width and height 16. Iterate over
      * those */
-    while((double) i < (double) rect_h / 16) {
+    while((i*16) < rect_h) {
         /* the last tile in a column could be smaller than 16 */
         if((remaining_h -= 16) <= 0)
-            tile_h = remaining_h + 16;
+        tile_h = remaining_h + 16;
 
         j = 0;
-        while((double) j < (double) rect_w / 16) {
+        while((j*16) < rect_w) {
             /* the last tile in a row could also be smaller */
             if((remaining_w -= 16) <= 0)
-                tile_w = remaining_w + 16;
+            tile_w = remaining_w + 16;
 
-            if(!read_from_rfb_server(sock, (char*) &subrect_encoding, 1))
+            if(!read_from_rfb_server(sock, (char*) &subrect_encoding, 1)) {
                 return 0;
+            }
+
+            rect_xW = rect_x + (j * 16);
+            rect_yW = rect_y + (i * 16);
+
             /* first, check if the raw bit is set */
             if(subrect_encoding & rfbHextileRaw) {
-                buffer = (char *) malloc(bpp * tile_w * tile_h);
-                if(!buffer) {
+                rfbFramebufferUpdateRectHeader rawUpdate;
+
+                rawUpdate.encoding = rfbEncodingRaw;
+
+                rawUpdate.r.w = tile_w;
+                rawUpdate.r.h = tile_h;
+
+                rawUpdate.r.x = rect_xW;
+                rawUpdate.r.y = rect_yW;
+
+                if(!_handle_raw_encoded_message(rawUpdate)) {
                     return 0;
                 }
-                if(!read_from_rfb_server(sock, buffer, bpp * tile_w * tile_h)) {
-                    return 0;
-                }
-                display->draw_area(rect_x + (j * 16), rect_y + (i * 16), tile_w, tile_h, (uint8_t *) buffer);
-                free(buffer);
-            } else /* subrect encoding is not raw */
-            {
+
+            } else { /* subrect encoding is not raw */
+
+                uint16_t fgColor;
+                uint16_t bgColor;
+
                 /* check whether theres a new bg or fg colour specified */
                 if(subrect_encoding & rfbHextileBackgroundSpecified) {
-                    buffer = (char *) malloc(bpp);
-                    if(!buffer) {
+                    if(!read_from_rfb_server(sock, (char *) &bgColor, sizeof(bgColor))) {
                         return 0;
                     }
-                    if(!read_from_rfb_server(sock, buffer, bpp)) {
-                        return 0;
-                    }
-                    rfb_get_rgb_from_data(&bg_r, &bg_g, &bg_b, buffer);
-                    free(buffer);
                 }
+
                 if(subrect_encoding & rfbHextileForegroundSpecified) {
-                    buffer = (char *) malloc(bpp);
-                    if(!buffer) {
+                    if(!read_from_rfb_server(sock, (char *) &fgColor, sizeof(fgColor))) {
                         return 0;
                     }
-                    if(!read_from_rfb_server(sock, buffer, bpp))
-                        return 0;
-                    rfb_get_rgb_from_data(&fg_r, &fg_g, &fg_b, buffer);
-                    free(buffer);
+                }
+
+                if(!fb.begin(tile_w, tile_h)) {
+                    DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
+                    return 0;
                 }
                 /* fill the background */
-                display->draw_rect(rect_x + (j * 16), rect_y + (i * 16), tile_w, tile_h, bg_r, bg_g, bg_b);
+                fb.draw_rect(0, 0, tile_w, tile_h, bgColor);
 
                 if(subrect_encoding & rfbHextileAnySubrects) {
-                    if(!read_from_rfb_server(sock, (char*) &nr_subr, 1))
-                        return 0;
-                    buffer = (char *) malloc(4);
-                    if(!buffer) {
+                    uint8_t nr_subr = 0;
+                    if(!read_from_rfb_server(sock, (char*) &nr_subr, 1)) {
                         return 0;
                     }
-                    for(n = 0; n < nr_subr; n++) {
+
+                    if(nr_subr) {
                         if(subrect_encoding & rfbHextileSubrectsColoured) {
+                            HextileSubrectsColoured_t * buf = (HextileSubrectsColoured_t *) malloc(nr_subr * sizeof(HextileSubrectsColoured_t));
+                            if(!buf) {
+                                DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
+                                return 0;
+                            }
 
-                            read_from_rfb_server(sock, buffer, bpp);
-                            rfb_get_rgb_from_data(&r, &g, &b, buffer);
+                            if(!read_from_rfb_server(sock, (char *)buf, nr_subr * sizeof(HextileSubrectsColoured_t))) {
+                                free(buf);
+                                return 0;
+                            }
 
-                            read_from_rfb_server(sock, buffer, 2);
-                            x = rfbHextileExtractX((CARD8 ) *buffer);
-                            y = rfbHextileExtractY((CARD8 ) *buffer);
-                            w = rfbHextileExtractW((CARD8 )*(buffer + 1));
-                            h = rfbHextileExtractH((CARD8 )*(buffer + 1));
-                            display->draw_rect(x + (rect_x + (j * 16)), y + (rect_y + (i * 16)), w, h, r, g, b);
+                            HextileSubrectsColoured_t * bufP = buf;
+                            for(uint8_t n = 0; n < nr_subr; n++) {
+                                fb.draw_rect(bufP->x, bufP->y, bufP->w+1, bufP->h+1, bufP->color);
+                                bufP++;
+                            }
+
+                            free(buf);
                         } else {
-                            read_from_rfb_server(sock, buffer, 2);
-                            x = rfbHextileExtractX((CARD8 ) *buffer);
-                            y = rfbHextileExtractY((CARD8 ) *buffer);
-                            w = rfbHextileExtractW((CARD8 )*(buffer + 1));
-                            h = rfbHextileExtractH((CARD8 )*(buffer + 1));
-                            display->draw_rect(x + (rect_x + (j * 16)), y + (rect_y + (i * 16)), w, h, fg_r, fg_g, fg_b);
+
+                            HextileSubrects_t * buf = (HextileSubrects_t *) malloc(nr_subr * sizeof(HextileSubrects_t));
+                            if(!buf) {
+                                DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
+                                return 0;
+                            }
+
+                            if(read_from_rfb_server(sock, (char *)buf, nr_subr * sizeof(HextileSubrects_t))) {
+                                free(buf);
+                                return 0;
+                            }
+
+                            HextileSubrects_t * bufP = buf;
+                            for(uint8_t n = 0; n < nr_subr; n++) {
+                                fb.draw_rect(bufP->x, bufP->y, bufP->w+1, bufP->h+1, fgColor);
+                                bufP++;
+                            }
+                            free(buf);
                         }
                     }
-                    free(buffer);
                 }
+                display->draw_area(rect_xW, rect_yW, tile_w, tile_h, fb.getPtr());
             }
             j++;
         }
         remaining_w = rectheader.r.w;
         tile_w = 16; /* reset for next row */
         i++;
+        delay(0);
     }
+
     return 1;
 }
 #endif
