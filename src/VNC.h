@@ -8,11 +8,18 @@
 #ifndef VNC_H_
 #define VNC_H_
 
+/// TCP layer
 #define USE_ARDUINO_TCP
 
+
+/// VNC Encodes
 //#define VNC_CORRE
 #define VNC_HEXTILE
 
+/// Buffers
+#define VNC_FRAMEBUFFER
+
+/// Testing
 #define FPS_BENCHMARK
 
 #include "Arduino.h"

@@ -13,7 +13,10 @@
 #include <math.h>
 
 #include "VNC.h"
+
+#ifdef VNC_FRAMEBUFFER
 #include "frameBuffer.h"
+#endif
 
 #ifdef VNC_TIGHT
 #include "tight.h"
@@ -821,7 +824,9 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
 
     CARD8 subrect_encoding;
 
+#ifdef VNC_FRAMEBUFFER
     FrameBuffer fb = FrameBuffer();
+#endif
 
     rect_w = remaining_w = rectheader.r.w;
     rect_h = remaining_h = rectheader.r.h;
@@ -882,12 +887,17 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
                     }
                 }
 
+#ifdef VNC_FRAMEBUFFER
                 if(!fb.begin(tile_w, tile_h)) {
                     DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
                     return 0;
                 }
                 /* fill the background */
                 fb.draw_rect(0, 0, tile_w, tile_h, bgColor);
+#else
+                /* fill the background */
+                display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, bgColor);
+#endif
 
                 if(subrect_encoding & rfbHextileAnySubrects) {
                     uint8_t nr_subr = 0;
@@ -910,7 +920,11 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
 
                             HextileSubrectsColoured_t * bufP = buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
+#ifdef VNC_FRAMEBUFFER
                                 fb.draw_rect(bufP->x, bufP->y, bufP->w+1, bufP->h+1, bufP->color);
+#else
+                                display->draw_rect(rect_xW + bufP->x, rect_yW + bufP->y, bufP->w+1, bufP->h+1, bufP->color);
+#endif
                                 bufP++;
                             }
 
@@ -930,14 +944,20 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
 
                             HextileSubrects_t * bufP = buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
+#ifdef VNC_FRAMEBUFFER
                                 fb.draw_rect(bufP->x, bufP->y, bufP->w+1, bufP->h+1, fgColor);
+#else
+                                display->draw_rect(rect_xW + bufP->x, rect_yW + bufP->y, bufP->w+1, bufP->h+1, fgColor);
+#endif
                                 bufP++;
                             }
                             free(buf);
                         }
                     }
                 }
+#ifdef VNC_FRAMEBUFFER
                 display->draw_area(rect_xW, rect_yW, tile_w, tile_h, fb.getPtr());
+#endif
             }
             j++;
         }
