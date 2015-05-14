@@ -760,7 +760,9 @@ int arduinoVNC::rfb_update_mouse() {
     msg.x = rint(mousestate.x * opt.h_ratio);
     msg.y = rint(mousestate.y * opt.v_ratio);
 
+#ifdef VNC_RICH_CURSOR
     SoftCursorMove(msg.x, msg.y);
+#endif
 
     msg.x = Swap16IfLE(msg.x);
     msg.y = Swap16IfLE(msg.y);
