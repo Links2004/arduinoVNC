@@ -172,6 +172,8 @@ class arduinoVNC {
 
         dfb_vnc_options opt;
 
+        uint8_t protocolMinorVersion;
+
         int sock;
         mousestate_t mousestate;
 
@@ -184,6 +186,9 @@ class arduinoVNC {
         /// Connect to Server
         int rfb_connect_to_server(const char *server, int display);
         int rfb_initialise_connection();
+
+        void _read_conn_failed_reason(void);
+        int _read_authentication_result(void);
 
         int _rfb_negotiate_protocol(void);
         int _rfb_authenticate(void);

@@ -7,6 +7,7 @@
 
 #include <Arduino.h>
 
+#include <stdio.h>
 #include <unistd.h>
 #include <inttypes.h>
 #include <stdint.h>
@@ -235,7 +236,7 @@ int arduinoVNC::rfb_connect_to_server(const char *host, int port) {
     {
         DEBUG_VNC("Error creating communication socket: %d\n", errno);
         //exit(2)
-        return (0);
+        return 0;
     }
 
     /* if the server wasnt specified as an ip address, look it up */
@@ -247,7 +248,7 @@ int arduinoVNC::rfb_connect_to_server(const char *host, int port) {
         {
             DEBUG_VNC("Couldnt resolve host!\n");
             close(sock);
-            return (0);
+            return 0;
         }
     }
 
@@ -258,13 +259,13 @@ int arduinoVNC::rfb_connect_to_server(const char *host, int port) {
     {
         DEBUG_VNC("Connect error\n");
         close(sock);
-        return (0);
+        return 0;
     }
     if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *)&one, sizeof(one)) < 0)
     {
         DEBUG_VNC("Error setting socket options\n");
         close(sock);
-        return (0);
+        return 0;
     }
 
     if (!set_non_blocking(sock)) return -1;
@@ -297,84 +298,192 @@ int arduinoVNC::rfb_initialise_connection() {
 }
 
 int arduinoVNC::_rfb_negotiate_protocol() {
+    uint16_t server_major, server_minor;
+
     rfbProtocolVersionMsg msg;
 
     /* read the protocol version the server uses */
     if(!read_from_rfb_server(sock, (char*) &msg, sz_rfbProtocolVersionMsg))
         return 0;
-    /* FIXME actually do something with that information ;) */
+
+    //RFB xxx.yyy
+    if(msg[0] != 'R' || msg[1] != 'F' || msg[2] != 'B' || msg[3] != ' ' || msg[7] != '.') {
+        DEBUG_VNC("[_rfb_negotiate_protocol] Not a valid VNC server\n");
+        return 0;
+    }
+    msg[11] = 0x00;
+
+    DEBUG_VNC("[_rfb_negotiate_protocol] Server protocol: %s\n", msg);
+
+    char majorStr[4] { msg[4], msg[5], msg[6], 0x00 };
+    char minorStr[4] { msg[8], msg[9], msg[10], 0x00 };
+
+    server_major = atol((const char *) &majorStr);
+    server_minor = atol((const char *) &minorStr);
+
+    if(server_major == 3 && server_minor >= 8) {
+        /* the server supports protocol 3.8 or higher version */
+        protocolMinorVersion = 8;
+    } else if(server_major == 3 && server_minor == 7) {
+        /* the server supports protocol 3.7 */
+        protocolMinorVersion = 7;
+    } else {
+        /* any other server version, request the standard 3.3 */
+        protocolMinorVersion = 3;
+    }
 
     /* send the protocol version we want to use */
-    sprintf(msg, rfbProtocolVersionFormat,
-    rfbProtocolMajorVersion,
-    rfbProtocolMinorVersion);
-    if(!write_exact(sock, msg, sz_rfbProtocolVersionMsg))
+    sprintf(msg, rfbProtocolVersionFormat, rfbProtocolMajorVersion, protocolMinorVersion);
+
+    DEBUG_VNC("[_rfb_negotiate_protocol] used protocol: %s\n", msg);
+
+    if(!write_exact(sock, msg, sz_rfbProtocolVersionMsg)) {
         return 0;
+    }
 
     return 1;
 }
 
-int arduinoVNC::_rfb_authenticate() {
-    CARD32 authscheme;
+void arduinoVNC::_read_conn_failed_reason(void) {
+    CARD32 reason_length;
+    CARD8 *reason_string;
+    DEBUG_VNC("DIRECTVNC: Connection to VNC server failed\n");
+    read_from_rfb_server(sock, (char *) &reason_length, sizeof(CARD32));
+    reason_length = Swap32IfLE(reason_length);
+    reason_string = (CARD8 *) malloc(sizeof(CARD8) * reason_length);
+    read_from_rfb_server(sock, (char *) reason_string, reason_length);
+    DEBUG_VNC("Errormessage: %s\n", reason_string);
+    free(reason_string);
+}
 
-    read_from_rfb_server(sock, (char *) &authscheme, 4);
-    authscheme = Swap32IfLE(authscheme);
-    switch(authscheme) {
-        CARD32 reason_length;
-        CARD8 *reason_string;
-        CARD8 challenge_and_response[CHALLENGESIZE];
-        CARD32 auth_result;
-
-    case rfbConnFailed:
-        DEBUG_VNC("DIRECTVNC: Connection to VNC server failed\n");
-        read_from_rfb_server(sock, (char *) &reason_length, 4);
-        reason_length = Swap32IfLE(reason_length);
-        reason_string = (CARD8 *) malloc(sizeof(CARD8) * reason_length);
-        read_from_rfb_server(sock, (char *) reason_string, reason_length);
-        DEBUG_VNC("Errormessage: %s\n", reason_string);
-        return (0);
-    case rfbVncAuth:
-
-#if 0
-        /* we didnt get a password on the command line, so go get one */
-        if (!opt.password)
-        {
-            if( opt.passwordfile )
-            {
-                opt.password = vncDecryptPasswdFromFile( opt.passwordfile );
-            }
-            else
-            {
-                opt.password = getpass("Password: ");
-            }
-        }
-#else
-        DEBUG_VNC("Server ask for password?");
-#endif
-        if(!read_from_rfb_server(sock, (char *) challenge_and_response, CHALLENGESIZE))
+int arduinoVNC::_read_authentication_result(void) {
+    CARD32 auth_result;
+    if(!read_from_rfb_server(sock, (char*) &auth_result, 4))
+        return 0;
+    auth_result = Swap32IfLE(auth_result);
+    switch(auth_result) {
+        case rfbAuthFailed:
+            DEBUG_VNC("Authentication Failed\n");
             return 0;
-        vncEncryptBytes(challenge_and_response, opt.password);
-        if(!write_exact(sock, (char *) challenge_and_response, CHALLENGESIZE))
+        case rfbAuthTooMany:
+            DEBUG_VNC("Too many connections\n");
             return 0;
-        if(!read_from_rfb_server(sock, (char*) &auth_result, 4))
+        case rfbAuthOK:
+            DEBUG_VNC("Authentication OK\n");
+            break;
+        default:
+            DEBUG_VNC("Unknown result of authentication: 0x%08X (%d)\n", auth_result, auth_result);
             return 0;
-        auth_result = Swap32IfLE(auth_result);
-        switch(auth_result) {
-            case rfbVncAuthFailed:
-                DEBUG_VNC("Authentication Failed\n");
-                return (0);
-            case rfbVncAuthTooMany:
-                DEBUG_VNC("Too many connections\n");
-                return (0);
-            case rfbVncAuthOK:
-                DEBUG_VNC("Authentication OK\n");
-                break;
-        }
-        break;
-    case rfbNoAuth:
-        break;
+            break;
     }
     return 1;
+}
+
+int arduinoVNC::_rfb_authenticate() {
+
+    CARD32 authscheme;
+    CARD8 challenge_and_response[CHALLENGESIZE];
+
+    if(protocolMinorVersion >= 7) {
+        CARD8 secType = rfbSecTypeInvalid;
+
+        CARD8 nSecTypes;
+        CARD8 *secTypes;
+
+        CARD8 knownSecTypes[] = { rfbSecTypeNone, rfbSecTypeVncAuth };
+        uint8_t nKnownSecTypes = sizeof(knownSecTypes);
+
+        if(!read_from_rfb_server(sock, (char *) &nSecTypes, sizeof(nSecTypes))) {
+            return 0;
+        }
+
+        if(nSecTypes == 0) {
+            _read_conn_failed_reason();
+        }
+
+        secTypes = (CARD8 *) malloc(nSecTypes);
+
+        if(!secTypes) {
+            return 0;
+        }
+
+        if(!read_from_rfb_server(sock, (char *) secTypes, nSecTypes)) {
+            free(secTypes);
+            return 0;
+        }
+
+        /* Find first supported security type */
+        for(uint8_t j = 0; j < (int) nSecTypes; j++) {
+            for(uint8_t i = 0; i < nKnownSecTypes; i++) {
+                if(secTypes[j] == knownSecTypes[i]) {
+                    secType = secTypes[j];
+                    break;
+                }
+            }
+            if(secType != rfbSecTypeInvalid) {
+                break;
+            }
+        }
+
+        free(secTypes);
+
+        if(!write_exact(sock, (char *) &secType, sizeof(secType))) {
+            return 0;
+        }
+
+        if(secType == rfbSecTypeInvalid) {
+            DEBUG_VNC("Server did not offer supported security type\n");
+        }
+
+        authscheme = secType;
+    } else {
+        // protocol Minor < 7
+        if(!read_from_rfb_server(sock, (char *) &authscheme, 4)) {
+            return 0;
+        }
+        authscheme = Swap32IfLE(authscheme);
+        if(authscheme == rfbSecTypeInvalid) {
+            _read_conn_failed_reason();
+        }
+    }
+
+    switch(authscheme) {
+        case rfbSecTypeInvalid:
+        case rfbSecTypeTight:
+            return 0;
+        case rfbSecTypeVncAuth:
+#if 0
+            /* we didnt get a password on the command line, so go get one */
+            if (!opt.password)
+            {
+                if( opt.passwordfile )
+                {
+                    opt.password = vncDecryptPasswdFromFile( opt.passwordfile );
+                }
+                else
+                {
+                    opt.password = getpass("Password: ");
+                }
+            }
+#else
+            DEBUG_VNC("Server ask for password?");
+#endif
+            if(!read_from_rfb_server(sock, (char *) challenge_and_response, CHALLENGESIZE)) {
+                return 0;
+            }
+            vncEncryptBytes(challenge_and_response, opt.password);
+            if(!write_exact(sock, (char *) challenge_and_response, CHALLENGESIZE)) {
+                return 0;
+            }
+            return _read_authentication_result();
+        case rfbSecTypeNone:
+            if(protocolMinorVersion >= 8) {
+                return _read_authentication_result();
+            }
+            break;
+    }
+
+    return 0;
 }
 
 int arduinoVNC::_rfb_initialise_client() {
@@ -414,8 +523,9 @@ int arduinoVNC::_rfb_initialise_server() {
     len = Swap32IfLE(si.nameLength);
     opt.server.name = (char *) malloc(sizeof(char) * len + 1);
 
-    if(!read_from_rfb_server(sock, opt.server.name, len))
+    if(!read_from_rfb_server(sock, opt.server.name, len)) {
         return 0;
+    }
 
     return 1;
 }
@@ -554,7 +664,7 @@ int arduinoVNC::rfb_handle_server_message() {
                             break;
 #endif
 #ifdef VNC_HEXTILE
-                            case rfbEncodingHextile:
+                        case rfbEncodingHextile:
                             _handle_hextile_encoded_message(rectheader);
                             break;
 #endif
@@ -835,16 +945,16 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
 
     /* the rect is divided into tiles of width and height 16. Iterate over
      * those */
-    while((i*16) < rect_h) {
+    while((i * 16) < rect_h) {
         /* the last tile in a column could be smaller than 16 */
         if((remaining_h -= 16) <= 0)
-        tile_h = remaining_h + 16;
+            tile_h = remaining_h + 16;
 
         j = 0;
-        while((j*16) < rect_w) {
+        while((j * 16) < rect_w) {
             /* the last tile in a row could also be smaller */
             if((remaining_w -= 16) <= 0)
-            tile_w = remaining_w + 16;
+                tile_w = remaining_w + 16;
 
             if(!read_from_rfb_server(sock, (char*) &subrect_encoding, 1)) {
                 return 0;
@@ -913,7 +1023,7 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
                                 return 0;
                             }
 
-                            if(!read_from_rfb_server(sock, (char *)buf, nr_subr * sizeof(HextileSubrectsColoured_t))) {
+                            if(!read_from_rfb_server(sock, (char *) buf, nr_subr * sizeof(HextileSubrectsColoured_t))) {
                                 free(buf);
                                 return 0;
                             }
@@ -921,7 +1031,7 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
                             HextileSubrectsColoured_t * bufP = buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
 #ifdef VNC_FRAMEBUFFER
-                                fb.draw_rect(bufP->x, bufP->y, bufP->w+1, bufP->h+1, bufP->color);
+                                fb.draw_rect(bufP->x, bufP->y, bufP->w + 1, bufP->h + 1, bufP->color);
 #else
                                 display->draw_rect(rect_xW + bufP->x, rect_yW + bufP->y, bufP->w+1, bufP->h+1, bufP->color);
 #endif
@@ -937,7 +1047,7 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
                                 return 0;
                             }
 
-                            if(read_from_rfb_server(sock, (char *)buf, nr_subr * sizeof(HextileSubrects_t))) {
+                            if(read_from_rfb_server(sock, (char *) buf, nr_subr * sizeof(HextileSubrects_t))) {
                                 free(buf);
                                 return 0;
                             }
@@ -945,7 +1055,7 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
                             HextileSubrects_t * bufP = buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
 #ifdef VNC_FRAMEBUFFER
-                                fb.draw_rect(bufP->x, bufP->y, bufP->w+1, bufP->h+1, fgColor);
+                                fb.draw_rect(bufP->x, bufP->y, bufP->w + 1, bufP->h + 1, fgColor);
 #else
                                 display->draw_rect(rect_xW + bufP->x, rect_yW + bufP->y, bufP->w+1, bufP->h+1, fgColor);
 #endif
