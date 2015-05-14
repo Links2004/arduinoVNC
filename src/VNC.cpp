@@ -294,7 +294,7 @@ int arduinoVNC::rfb_initialise_connection() {
         DEBUG_VNC("[rfb_initialise_connection] _rfb_initialise_server() Faild!\n");
         return 0;
     }
-    return (1);
+    return 1;
 }
 
 int arduinoVNC::_rfb_negotiate_protocol() {
@@ -535,7 +535,7 @@ int arduinoVNC::_rfb_initialise_server() {
 //#############################################################################################
 
 int arduinoVNC::rfb_set_format_and_encodings() {
-    int num_enc = 0;
+    uint8_t num_enc = 0;
     rfbSetPixelFormatMsg pf;
     rfbSetEncodingsMsg em;
     CARD32 enc[MAX_ENCODINGS];
@@ -552,11 +552,11 @@ int arduinoVNC::rfb_set_format_and_encodings() {
     pf.format.greenShift = opt.client.greenshift;
     pf.format.blueShift = opt.client.blueshift;
 
-    if(!write_exact(sock, (char*) &pf, sz_rfbSetPixelFormatMsg))
+    if(!write_exact(sock, (char*) &pf, sz_rfbSetPixelFormatMsg)) {
         return 0;
+    }
 
     em.type = rfbSetEncodings;
-    em.nEncodings = Swap16IfLE(0);
 
 #ifdef VNC_TIGHT
     enc[num_enc++] = Swap32IfLE(rfbEncodingTight);
@@ -572,32 +572,41 @@ int arduinoVNC::rfb_set_format_and_encodings() {
         enc[num_enc++] = Swap32IfLE(rfbEncodingCopyRect);
     }
 
-#ifdef VNC_CORRE
+#ifdef VNC_RRE
     enc[num_enc++] = Swap32IfLE(rfbEncodingRRE);
+#endif
+#ifdef VNC_CORRE
     enc[num_enc++] = Swap32IfLE(rfbEncodingCoRRE);
 #endif
     enc[num_enc++] = Swap32IfLE(rfbEncodingRaw);
 
-#if 0
+#ifdef VNC_RICH_CURSOR
     /* Track cursor locally */
-    if (opt.localcursor)
-    enc[num_enc++] = Swap32IfLE(rfbEncodingRichCursor);
-
-    if (opt.client.compresslevel <= 9)
-    enc[num_enc++] = Swap32IfLE(rfbEncodingCompressLevel0 +
-            opt.client.compresslevel);
-    if (opt.client.quality <= 9)
-    enc[num_enc++] = Swap32IfLE(rfbEncodingQualityLevel0 +
-            opt.client.quality);
+    if (opt.localcursor) {
+        enc[num_enc++] = Swap32IfLE(rfbEncodingRichCursor);
+    }
 #endif
+
+#if 0
+    if (opt.client.compresslevel <= 9) {
+        enc[num_enc++] = Swap32IfLE(rfbEncodingCompressLevel0 + opt.client.compresslevel);
+    }
+    if (opt.client.quality <= 9) {
+        enc[num_enc++] = Swap32IfLE(rfbEncodingQualityLevel0 + opt.client.quality);
+    }
+#endif
+
     em.nEncodings = Swap16IfLE(num_enc);
 
-    if(!write_exact(sock, (char*) &em, sz_rfbSetEncodingsMsg))
+    if(!write_exact(sock, (char*) &em, sz_rfbSetEncodingsMsg)) {
         return 0;
-    if(!write_exact(sock, (char*) &enc, num_enc * 4))
-        return 0;
+    }
 
-    return (1);
+    if(!write_exact(sock, (char*) &enc, num_enc * 4)) {
+        return 0;
+    }
+
+    return 1;
 }
 
 int arduinoVNC::rfb_send_update_request(int incremental) {
@@ -655,10 +664,12 @@ int arduinoVNC::rfb_handle_server_message() {
                         case rfbEncodingCopyRect:
                             _handle_copyrect_encoded_message(rectheader);
                             break;
-#ifdef VNC_CORRE
+#ifdef VNC_RRE
                             case rfbEncodingRRE:
                             _handle_rre_encoded_message(rectheader);
                             break;
+#endif
+#ifdef VNC_CORRE
                             case rfbEncodingCoRRE:
                             _handle_corre_encoded_message(rectheader);
                             break;
@@ -678,9 +689,11 @@ int arduinoVNC::rfb_handle_server_message() {
                             _handle_zlib_encoded_message(rectheader);
                             break;
 #endif
-                        case rfbEncodingRichCursor:
+#ifdef VNC_RICH_CURSOR
+                            case rfbEncodingRichCursor:
                             _handle_richcursor_message(rectheader);
                             break;
+#endif
                         case rfbEncodingLastRect:
                             DEBUG_VNC("LAST\n");
                             break;
@@ -724,7 +737,7 @@ int arduinoVNC::rfb_handle_server_message() {
                 break;
         }
     }
-    return (1);
+    return 1;
 }
 
 int arduinoVNC::rfb_update_mouse() {
@@ -765,28 +778,31 @@ int arduinoVNC::rfb_send_key_event(int key, int down_flag) {
     return (write_exact(sock, (char*) &ke, sz_rfbKeyEventMsg));
 }
 
+#if 0
+// not used need only performance  and is not needed
 void arduinoVNC::rfb_get_rgb_from_data(int *r, int *g, int *b, char *data) {
     CARD16 foo16;
 
     switch(opt.client.bpp) {
         case 8:
-            DEBUG_VNC("FIXME unimplemented\n");
-            break;
+        DEBUG_VNC("FIXME unimplemented\n");
+        break;
         case 16:
-            memcpy(&foo16, data, 2);
-            foo16 = Swap16IfLE(foo16);
-            *r = ((foo16 >> opt.client.redshift) & opt.client.redmax) << 3;
-            *g = ((foo16 >> opt.client.greenshift) & opt.client.greenmax) << 2;
-            *b = ((foo16 >> opt.client.blueshift) & opt.client.bluemax) << 3;
-            break;
+        memcpy(&foo16, data, 2);
+        foo16 = Swap16IfLE(foo16);
+        *r = ((foo16 >> opt.client.redshift) & opt.client.redmax) << 3;
+        *g = ((foo16 >> opt.client.greenshift) & opt.client.greenmax) << 2;
+        *b = ((foo16 >> opt.client.blueshift) & opt.client.bluemax) << 3;
+        break;
         case 24:
         case 32:
-            *r = data[2] & 0x00FF;
-            *g = data[1] & 0x00FF;
-            *b = data[0] & 0x00FF;
-            break;
+        *r = data[2] & 0x00FF;
+        *g = data[1] & 0x00FF;
+        *b = data[0] & 0x00FF;
+        break;
     }
 }
+#endif
 
 //#############################################################################################
 //                                      Encode handling
@@ -801,20 +817,20 @@ int arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader recth
 
     char *buf = NULL;
 
-    DEBUG_VNC("[_handle_raw_encoded_message] x: %d y: %d w: %d h: %d bytes: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, msgSize);
+    //DEBUG_VNC("[_handle_raw_encoded_message] x: %d y: %d w: %d h: %d bytes: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, msgSize);
 
     if(msgSize > maxSize) {
         msgPixel = (maxSize / (opt.client.bpp / 8));
         msgSize = (msgPixel * (opt.client.bpp / 8));
-        DEBUG_VNC("[_handle_raw_encoded_message] update to big for ram split %d! Free: %d\n", msgSize, ESP.getFreeHeap());
+        //DEBUG_VNC("[_handle_raw_encoded_message] update to big for ram split %d! Free: %d\n", msgSize, ESP.getFreeHeap());
     }
 
-    DEBUG_VNC("[_handle_raw_encoded_message] msgPixel: %d msgSize: %d\n", msgPixel, msgSize);
+    //DEBUG_VNC("[_handle_raw_encoded_message] msgPixel: %d msgSize: %d\n", msgPixel, msgSize);
 
     display->area_update_start(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
 
     while(msgPixelTotal) {
-        DEBUG_VNC("[_handle_raw_encoded_message] Pixel left: %d\n", msgPixelTotal);
+        //DEBUG_VNC("[_handle_raw_encoded_message] Pixel left: %d\n", msgPixelTotal);
 
         if(msgPixelTotal < msgPixel) {
             msgPixel = msgPixelTotal;
@@ -840,7 +856,7 @@ int arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader recth
     }
 
     display->area_update_end();
-    DEBUG_VNC("[_handle_raw_encoded_message] ------------------------ Fin ------------------------\n");
+    //DEBUG_VNC("[_handle_raw_encoded_message] ------------------------ Fin ------------------------\n");
 }
 
 int arduinoVNC::_handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
@@ -859,67 +875,70 @@ int arduinoVNC::_handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader 
     return 1;
 }
 
-#ifdef VNC_CORRE
+#ifdef VNC_RRE
 int arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
     rfbRREHeader header;
-    char *colour;
+    uint16_t colour;
     CARD16 rect[4];
-    int r = 0, g = 0, b = 0;
 
-    colour = (char *) malloc(sizeof(opt.client.bpp / 8));
-    if(!read_from_rfb_server(sock, (char *) &header, sz_rfbRREHeader))
-    return 0;
+    if(!read_from_rfb_server(sock, (char *) &header, sz_rfbRREHeader)) {
+        return 0;
+    }
     header.nSubrects = Swap32IfLE(header.nSubrects);
 
     /* draw background rect */
-    if(!read_from_rfb_server(sock, colour, opt.client.bpp / 8))
-    return 0;
-    rfb_get_rgb_from_data(&r, &g, &b, colour);
+    if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
+        return 0;
+    }
 
-    display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, r, g, b);
+    display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, colour);
 
     /* subrect pixel values */
     for(uint32_t i = 0; i < header.nSubrects; i++) {
-        if(!read_from_rfb_server(sock, colour, opt.client.bpp / 8))
-        return 0;
-        rfb_get_rgb_from_data(&r, &g, &b, colour);
+        if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
+            return 0;
+        }
         if(!read_from_rfb_server(sock, (char *) &rect, sizeof(rect)))
         return 0;
         display->draw_rect(
                 Swap16IfLE(rect[0]) + rectheader.r.x,
-                Swap16IfLE(rect[1]) + rectheader.r.y, Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), r, g, b);
+                Swap16IfLE(rect[1]) + rectheader.r.y, Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), colour);
     }
-    free(colour);
+
     return 1;
 }
+#endif
 
+#ifdef VNC_CORRE
 int arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
     rfbRREHeader header;
-    char *colour;
+    uint16_t colour;
     CARD8 rect[4];
-    int r = 0, g = 0, b = 0;
 
-    colour = (char *) malloc(sizeof(opt.client.bpp / 8));
-    if(!read_from_rfb_server(sock, (char *) &header, sz_rfbRREHeader))
-    return 0;
+    if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
+        return 0;
+    }
+    if(!read_from_rfb_server(sock, (char *) &header, sz_rfbRREHeader)) {
+        return 0;
+    }
     header.nSubrects = Swap32IfLE(header.nSubrects);
 
     /* draw background rect */
-    if(!read_from_rfb_server(sock, colour, opt.client.bpp / 8))
-    return 0;
-    rfb_get_rgb_from_data(&r, &g, &b, colour);
-    display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, r, g, b);
+    if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
+        return 0;
+    }
+    display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, colour);
 
     /* subrect pixel values */
     for(uint32_t i = 0; i < header.nSubrects; i++) {
-        if(!read_from_rfb_server(sock, colour, opt.client.bpp / 8))
-        return 0;
-        rfb_get_rgb_from_data(&r, &g, &b, colour);
-        if(!read_from_rfb_server(sock, (char *) &rect, sizeof(rect)))
-        return 0;
-        display->draw_rect(rect[0] + rectheader.r.x, rect[1] + rectheader.r.y, rect[2], rect[3], r, g, b);
+        if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
+            return 0;
+        }
+        if(!read_from_rfb_server(sock, (char *) &rect, sizeof(rect))) {
+            return 0;
+        }
+        display->draw_rect(rect[0] + rectheader.r.x, rect[1] + rectheader.r.y, rect[2], rect[3], colour);
     }
-    free(colour);
     return 1;
 }
 #endif
@@ -1080,9 +1099,12 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
     return 1;
 }
 #endif
+
+#ifdef VNC_RICH_CURSOR
 int arduinoVNC::_handle_richcursor_message(rfbFramebufferUpdateRectHeader rectheader) {
     return HandleRichCursor(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
 }
+#endif
 
 //#############################################################################################
 //                                      Encryption
@@ -1120,6 +1142,7 @@ void arduinoVNC::vncEncryptBytes(unsigned char *bytes, char *passwd) {
 //                                      Cursor
 //#############################################################################################
 
+#ifdef VNC_RICH_CURSOR
 int arduinoVNC::HandleRichCursor(int x, int y, int w, int h) {
     //todo handle Cursor
     return 0;
@@ -1128,3 +1151,4 @@ int arduinoVNC::HandleRichCursor(int x, int y, int w, int h) {
 void arduinoVNC::SoftCursorMove(int x, int y) {
     //todo handle Cursor
 }
+#endif

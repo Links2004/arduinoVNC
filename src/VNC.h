@@ -13,8 +13,10 @@
 
 
 /// VNC Encodes
+//#define VNC_RRE
 //#define VNC_CORRE
 #define VNC_HEXTILE
+//#define VNC_RICH_CURSOR
 
 /// Buffers
 #define VNC_FRAMEBUFFER
@@ -37,13 +39,13 @@
 #endif
 
 
-//#define DEBUG_VNC(...) os_printf( __VA_ARGS__ )
-#define DEBUG_VNC(...)
+#define DEBUG_VNC(...) os_printf( __VA_ARGS__ )
+//#define DEBUG_VNC(...)
 
 #define MAXPWLEN 8
 #define CHALLENGESIZE 16
 
-#define MAX_ENCODINGS 10
+#define MAX_ENCODINGS 15
 
 #ifdef WORDS_BIGENDIAN
 #define Swap16IfLE(s) (s)
@@ -202,7 +204,7 @@ class arduinoVNC {
         int rfb_update_mouse();
         int rfb_send_key_event(int key, int down_flag);
 
-        void rfb_get_rgb_from_data(int *r, int *g, int *b, char *data);
+        //void rfb_get_rgb_from_data(int *r, int *g, int *b, char *data);
 
         /// Encode handling
         int _handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
@@ -214,16 +216,19 @@ class arduinoVNC {
 #ifdef VNC_HEXTILE
         int _handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
 #endif
+#ifdef VNC_RICH_CURSOR
         int _handle_richcursor_message(rfbFramebufferUpdateRectHeader rectheader);
+#endif
 
         /// Encryption
         void vncRandomBytes(unsigned char *bytes);
         void vncEncryptBytes(unsigned char *bytes, char *passwd);
 
+#ifdef VNC_RICH_CURSOR
         /// Cursor
         int HandleRichCursor(int x, int y, int w, int h);
         void SoftCursorMove(int x, int y);
-
+#endif
 
 #ifdef USE_ARDUINO_TCP
 #ifdef ESP8266
