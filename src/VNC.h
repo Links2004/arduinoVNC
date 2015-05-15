@@ -10,7 +10,7 @@
 
 /// TCP layer
 #define USE_ARDUINO_TCP
-
+#define VNC_TCP_TIMEOUT 1000
 
 /// VNC Encodes
 //#define VNC_RRE
@@ -23,6 +23,30 @@
 
 /// Testing
 #define FPS_BENCHMARK
+#define FPS_BENCHMARK_FULL
+
+//#define SLOW_LOOP 250
+
+#define DEBUG_VNC(...) os_printf( __VA_ARGS__ )
+
+#define DEBUG_VNC_RAW(...)
+#define DEBUG_VNC_HEXTILE(...)
+
+#ifndef DEBUG_VNC
+#define DEBUG_VNC(...)
+#endif
+
+#ifndef DEBUG_VNC_RAW
+#define DEBUG_VNC_RAW(...) DEBUG_VNC( __VA_ARGS__ )
+#endif
+
+#ifndef DEBUG_VNC_HEXTILE
+#define DEBUG_VNC_HEXTILE(...) DEBUG_VNC( __VA_ARGS__ )
+#endif
+
+#define freeSec(ptr) free(ptr); ptr = 0
+
+
 
 #include "Arduino.h"
 
@@ -38,9 +62,6 @@
 #endif
 #endif
 
-
-#define DEBUG_VNC(...) os_printf( __VA_ARGS__ )
-//#define DEBUG_VNC(...)
 
 #define MAXPWLEN 8
 #define CHALLENGESIZE 16
@@ -132,6 +153,10 @@ typedef struct
 
 #include "rfbproto.h"
 
+#ifdef VNC_FRAMEBUFFER
+#include "frameBuffer.h"
+#endif
+
 class VNCdisplay {
     protected:
         VNCdisplay() {}
@@ -157,12 +182,20 @@ class VNCdisplay {
 class arduinoVNC {
     public:
         arduinoVNC(VNCdisplay * display);
+        ~arduinoVNC(void);
 
         void begin(char *host, uint16_t port = 5900, bool onlyFullUpdate = false);
         void begin(const char *host, uint16_t port = 5900, bool onlyFullUpdate = false);
         void begin(String host, uint16_t port = 5900, bool onlyFullUpdate= false);
 
+        void setPassword(char * pass);
+        void setPassword(const char * pass);
+        void setPassword(String pass);
+
+        void reconnect(void);
+
         void loop(void);
+
 
         int forceFullUpdate(void);
 
@@ -170,6 +203,9 @@ class arduinoVNC {
         bool onlyFullUpdate;
         int port;
         String host;
+        String password;
+
+
         VNCdisplay * display;
 
         dfb_vnc_options opt;
@@ -179,7 +215,11 @@ class arduinoVNC {
         int sock;
         mousestate_t mousestate;
 
+#ifdef VNC_FRAMEBUFFER
+        FrameBuffer fb;
+#endif
         /// TCP handling
+        void disconnect(void);
         int read_from_rfb_server(int sock, char *out, size_t n);
         int write_exact(int sock, char *buf, size_t n);
         int set_non_blocking(int sock);
@@ -189,7 +229,7 @@ class arduinoVNC {
         int rfb_connect_to_server(const char *server, int display);
         int rfb_initialise_connection();
 
-        void _read_conn_failed_reason(void);
+        int _read_conn_failed_reason(void);
         int _read_authentication_result(void);
 
         int _rfb_negotiate_protocol(void);
@@ -207,6 +247,8 @@ class arduinoVNC {
         //void rfb_get_rgb_from_data(int *r, int *g, int *b, char *data);
 
         /// Encode handling
+        int _handle_server_cut_text_message(rfbServerToClientMsg * msg);
+
         int _handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
         int _handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
 #ifdef VNC_CORRE
@@ -244,7 +286,5 @@ class arduinoVNC {
 
 };
 
-int vnc_connect(char *host, int port);
-void vnc_loop(void);
 
 #endif /* MARKUS_VNC_H_ */

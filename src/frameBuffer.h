@@ -15,6 +15,7 @@ class FrameBuffer {
         bool begin(uint32_t _w, uint32_t _h);
 
         uint8_t * getPtr(void);
+        void freeBuffer(void);
 
         void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color);
 
