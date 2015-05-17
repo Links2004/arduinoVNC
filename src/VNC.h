@@ -10,20 +10,25 @@
 
 /// TCP layer
 #define USE_ARDUINO_TCP
-#define VNC_TCP_TIMEOUT 1000
+#define VNC_TCP_TIMEOUT 800
 
 /// VNC Encodes
-//#define VNC_RRE
-//#define VNC_CORRE
+#define VNC_RRE
+#define VNC_CORRE
 #define VNC_HEXTILE
+
+// not implementet yet
+//#define VNC_TIGHT
+//#define VNC_ZLIB
 //#define VNC_RICH_CURSOR
+//#define VNC_SEC_TYPE_TIGHT
 
 /// Buffers
 #define VNC_FRAMEBUFFER
 
 /// Testing
-#define FPS_BENCHMARK
-#define FPS_BENCHMARK_FULL
+//#define FPS_BENCHMARK
+//#define FPS_BENCHMARK_FULL
 
 //#define SLOW_LOOP 250
 
@@ -31,6 +36,7 @@
 
 #define DEBUG_VNC_RAW(...)
 #define DEBUG_VNC_HEXTILE(...)
+//#define DEBUG_VNC_RICH_CURSOR(...)
 
 #ifndef DEBUG_VNC
 #define DEBUG_VNC(...)
@@ -42,6 +48,10 @@
 
 #ifndef DEBUG_VNC_HEXTILE
 #define DEBUG_VNC_HEXTILE(...) DEBUG_VNC( __VA_ARGS__ )
+#endif
+
+#ifndef DEBUG_VNC_RICH_CURSOR
+#define DEBUG_VNC_RICH_CURSOR(...) DEBUG_VNC( __VA_ARGS__ )
 #endif
 
 #define freeSec(ptr) free(ptr); ptr = 0
@@ -66,7 +76,7 @@
 #define MAXPWLEN 8
 #define CHALLENGESIZE 16
 
-#define MAX_ENCODINGS 15
+#define MAX_ENCODINGS 20
 
 #ifdef WORDS_BIGENDIAN
 #define Swap16IfLE(s) (s)
@@ -192,6 +202,7 @@ class arduinoVNC {
         void setPassword(const char * pass);
         void setPassword(String pass);
 
+        bool connected(void);
         void reconnect(void);
 
         void loop(void);
@@ -220,47 +231,50 @@ class arduinoVNC {
 #endif
         /// TCP handling
         void disconnect(void);
-        int read_from_rfb_server(int sock, char *out, size_t n);
-        int write_exact(int sock, char *buf, size_t n);
-        int set_non_blocking(int sock);
+        bool read_from_rfb_server(int sock, char *out, size_t n);
+        bool write_exact(int sock, char *buf, size_t n);
+        bool set_non_blocking(int sock);
 
 
         /// Connect to Server
-        int rfb_connect_to_server(const char *server, int display);
-        int rfb_initialise_connection();
+        bool rfb_connect_to_server(const char *server, int display);
+        bool rfb_initialise_connection();
 
-        int _read_conn_failed_reason(void);
-        int _read_authentication_result(void);
+        bool _read_conn_failed_reason(void);
+        bool _read_authentication_result(void);
 
-        int _rfb_negotiate_protocol(void);
-        int _rfb_authenticate(void);
-        int _rfb_initialise_client(void);
-        int _rfb_initialise_server(void);
+        bool _rfb_negotiate_protocol(void);
+        bool _rfb_authenticate(void);
+        bool _rfb_initialise_client(void);
+        bool _rfb_initialise_server(void);
 
 
-        int rfb_set_format_and_encodings();
-        int rfb_send_update_request(int incremental);
-        int rfb_handle_server_message();
-        int rfb_update_mouse();
-        int rfb_send_key_event(int key, int down_flag);
+        bool rfb_set_format_and_encodings();
+        bool rfb_send_update_request(int incremental);
+        bool rfb_handle_server_message();
+        bool rfb_update_mouse();
+        bool rfb_send_key_event(int key, int down_flag);
 
         //void rfb_get_rgb_from_data(int *r, int *g, int *b, char *data);
 
         /// Encode handling
-        int _handle_server_cut_text_message(rfbServerToClientMsg * msg);
+        bool _handle_server_cut_text_message(rfbServerToClientMsg * msg);
 
-        int _handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
-        int _handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
+        bool _handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
+        bool _handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
 #ifdef VNC_CORRE
-        int _handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
-        int _handle_corre_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
+        bool _handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
+        bool _handle_corre_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
 #endif
 #ifdef VNC_HEXTILE
-        int _handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
+        bool _handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
 #endif
+        bool _handle_cursor_pos_message(rfbFramebufferUpdateRectHeader rectheader);
 #ifdef VNC_RICH_CURSOR
-        int _handle_richcursor_message(rfbFramebufferUpdateRectHeader rectheader);
+        bool _handle_richcursor_message(rfbFramebufferUpdateRectHeader rectheader);
 #endif
+
+        bool _handle_server_continuous_updates_message(rfbFramebufferUpdateRectHeader rectheader);
 
         /// Encryption
         void vncRandomBytes(unsigned char *bytes);
@@ -268,7 +282,8 @@ class arduinoVNC {
 
 #ifdef VNC_RICH_CURSOR
         /// Cursor
-        int HandleRichCursor(int x, int y, int w, int h);
+        uint8_t * richCursorData;
+        uint8_t * richCursorMask;
         void SoftCursorMove(int x, int y);
 #endif
 

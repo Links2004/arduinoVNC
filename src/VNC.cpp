@@ -45,10 +45,22 @@ arduinoVNC::arduinoVNC(VNCdisplay * _display) {
     sock = 0;
     protocolMinorVersion = 3;
     onlyFullUpdate = false;
+#ifdef VNC_RICH_CURSOR
+    richCursorData = NULL;
+    richCursorMask = NULL;
+#endif
 }
 
-arduinoVNC::~arduinoVNC(void){
+arduinoVNC::~arduinoVNC(void) {
     TCPclient.stop();
+#ifdef VNC_RICH_CURSOR
+    if(richCursorData) {
+        freeSec(richCursorData);
+    }
+    if(richCursorMask) {
+        freeSec(richCursorMask);
+    }
+#endif
 }
 
 void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate) {
@@ -117,8 +129,15 @@ void arduinoVNC::setPassword(String pass) {
     opt.password = (char *) password.c_str();
 }
 
-
 void arduinoVNC::loop(void) {
+#ifdef ESP8266
+    if(WiFi.status() != WL_CONNECTED) {
+        if(TCPclient.connected()) {
+            disconnect();
+        }
+        return;
+    }
+#endif
 
     if(!TCPclient.connected()) {
         if(!rfb_connect_to_server(host.c_str(), port)) {
@@ -130,6 +149,7 @@ void arduinoVNC::loop(void) {
         /* initialize the connection */
         if(!rfb_initialise_connection()) {
             DEBUG_VNC("Connection with VNC server couldnt be initialized. Exiting\n");
+            disconnect();
             delay(500);
             return;
         }
@@ -137,6 +157,7 @@ void arduinoVNC::loop(void) {
         /* Tell the VNC server which pixel format and encodings we want to use */
         if(!rfb_set_format_and_encodings()) {
             DEBUG_VNC("Error negotiating format and encodings. Exiting.\n");
+            disconnect();
             delay(500);
             return;
         }
@@ -163,7 +184,6 @@ void arduinoVNC::loop(void) {
 
         DEBUG_VNC("vnc_connect Done.\n");
 
-
     } else {
         if(!rfb_handle_server_message()) {
             //DEBUG_VNC("rfb_handle_server_message faild.\n");
@@ -185,13 +205,17 @@ void arduinoVNC::reconnect(void) {
     disconnect();
 }
 
+bool arduinoVNC::connected(void) {
+    return TCPclient.connected();
+}
+
 //#############################################################################################
 //                                       TCP handling
 //#############################################################################################
 
 #ifdef USE_ARDUINO_TCP
 
-int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
+bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
     unsigned long t = millis();
     size_t len;
     /*
@@ -209,13 +233,17 @@ int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
      */
     while(n > 0) {
         if(!TCPclient.connected()) {
-            DEBUG_VNC("[read_from_rfb_server] Receive not connected!\n");
-            return 0;
+            DEBUG_VNC("[read_from_rfb_server] Receive not connected - 1!\n");
+            return false;
         }
         while(!TCPclient.available()) {
+            if(!TCPclient.connected()) {
+                DEBUG_VNC("[read_from_rfb_server] Receive not connected - 2!\n");
+                return false;
+            }
             if((millis() - t) > VNC_TCP_TIMEOUT) {
                 DEBUG_VNC("[read_from_rfb_server] Receive TIMEOUT!\n");
-                return 0;
+                return false;
             }
             delay(0);
         }
@@ -231,22 +259,19 @@ int arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
         }
         delay(0);
     }
-    return 1;
+    return true;
 }
 
-int arduinoVNC::write_exact(int sock, char *buf, size_t n) {
+bool arduinoVNC::write_exact(int sock, char *buf, size_t n) {
     if(!TCPclient.connected()) {
         DEBUG_VNC("[write_exact] not connected!\n");
-        return 0;
+        return false;
     }
-    return TCPclient.write((uint8_t*) buf, n);
+    return (TCPclient.write((uint8_t*) buf, n) == n);
 }
 
-int arduinoVNC::set_non_blocking(int sock) {
-#ifdef ESP8266
-    //TCPclient.setNoDelay(true);
-#endif
-    return 1;
+bool arduinoVNC::set_non_blocking(int sock) {
+    return true;
 }
 
 void arduinoVNC::disconnect(void) {
@@ -264,15 +289,15 @@ void arduinoVNC::disconnect(void) {
 /*
  * ConnectToRFBServer.
  */
-int arduinoVNC::rfb_connect_to_server(const char *host, int port) {
+bool arduinoVNC::rfb_connect_to_server(const char *host, int port) {
 #ifdef USE_ARDUINO_TCP
     if(!TCPclient.connect(host, port)) {
         DEBUG_VNC("[rfb_connect_to_server] Connect error\n");
-        return 0;
+        return false;
     }
 
     DEBUG_VNC("[rfb_connect_to_server] Connected.\n");
-    return 1;
+    return true;
 #else
     struct hostent *he=NULL;
     int one=1;
@@ -282,7 +307,7 @@ int arduinoVNC::rfb_connect_to_server(const char *host, int port) {
     {
         DEBUG_VNC("Error creating communication socket: %d\n", errno);
         //exit(2)
-        return 0;
+        return false;
     }
 
     /* if the server wasnt specified as an ip address, look it up */
@@ -294,7 +319,7 @@ int arduinoVNC::rfb_connect_to_server(const char *host, int port) {
         {
             DEBUG_VNC("Couldnt resolve host!\n");
             close(sock);
-            return 0;
+            return false;
         }
     }
 
@@ -305,13 +330,13 @@ int arduinoVNC::rfb_connect_to_server(const char *host, int port) {
     {
         DEBUG_VNC("Connect error\n");
         close(sock);
-        return 0;
+        return false;
     }
     if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *)&one, sizeof(one)) < 0)
     {
         DEBUG_VNC("Error setting socket options\n");
         close(sock);
-        return 0;
+        return false;
     }
 
     if (!set_non_blocking(sock)) return -1;
@@ -320,42 +345,43 @@ int arduinoVNC::rfb_connect_to_server(const char *host, int port) {
 #endif
 }
 
-int arduinoVNC::rfb_initialise_connection() {
+bool arduinoVNC::rfb_initialise_connection() {
     if(!_rfb_negotiate_protocol()) {
         DEBUG_VNC("[rfb_initialise_connection] _rfb_negotiate_protocol()  Faild!\n");
-        return 0;
+        return false;
     }
 
     if(!_rfb_authenticate()) {
         DEBUG_VNC("[rfb_initialise_connection] _rfb_authenticate()  Faild!\n");
-        return 0;
+        return false;
     }
 
     if(!_rfb_initialise_client()) {
         DEBUG_VNC("[rfb_initialise_connection] _rfb_initialise_client()  Faild!\n");
-        return 0;
+        return false;
     }
 
     if(!_rfb_initialise_server()) {
         DEBUG_VNC("[rfb_initialise_connection] _rfb_initialise_server() Faild!\n");
-        return 0;
+        return false;
     }
-    return 1;
+
+    return true;
 }
 
-int arduinoVNC::_rfb_negotiate_protocol() {
+bool arduinoVNC::_rfb_negotiate_protocol() {
     uint16_t server_major, server_minor;
 
     rfbProtocolVersionMsg msg;
 
     /* read the protocol version the server uses */
     if(!read_from_rfb_server(sock, (char*) &msg, sz_rfbProtocolVersionMsg))
-        return 0;
+        return false;
 
     //RFB xxx.yyy
     if(msg[0] != 'R' || msg[1] != 'F' || msg[2] != 'B' || msg[3] != ' ' || msg[7] != '.') {
         DEBUG_VNC("[_rfb_negotiate_protocol] Not a valid VNC server\n");
-        return 0;
+        return false;
     }
     msg[11] = 0x00;
 
@@ -384,62 +410,62 @@ int arduinoVNC::_rfb_negotiate_protocol() {
     DEBUG_VNC("[_rfb_negotiate_protocol] used protocol: %s\n", msg);
 
     if(!write_exact(sock, msg, sz_rfbProtocolVersionMsg)) {
-        return 0;
+        return false;
     }
 
-    return 1;
+    return true;
 }
 
-int arduinoVNC::_read_conn_failed_reason(void) {
+bool arduinoVNC::_read_conn_failed_reason(void) {
     CARD32 reason_length;
     CARD8 *reason_string;
     DEBUG_VNC("[_read_conn_failed_reason] Connection to VNC server failed\n");
 
     if(!read_from_rfb_server(sock, (char *) &reason_length, sizeof(CARD32))) {
-        return 0;
+        return false;
     }
 
     reason_length = Swap32IfLE(reason_length);
     reason_string = (CARD8 *) malloc(sizeof(CARD8) * reason_length);
 
     if(!reason_string) {
-        return 0;
+        return false;
     }
 
     if(!read_from_rfb_server(sock, (char *) reason_string, reason_length)) {
         freeSec(reason_string);
-        return 0;
+        return false;
     }
 
     DEBUG_VNC("[_read_conn_failed_reason] Errormessage: %s\n", reason_string);
     freeSec(reason_string);
-    return 1;
+    return true;
 }
 
-int arduinoVNC::_read_authentication_result(void) {
+bool arduinoVNC::_read_authentication_result(void) {
     CARD32 auth_result;
     if(!read_from_rfb_server(sock, (char*) &auth_result, 4)) {
-        return 0;
+        return false;
     }
 
     auth_result = Swap32IfLE(auth_result);
     switch(auth_result) {
         case rfbAuthFailed:
             DEBUG_VNC("Authentication Failed\n");
-            return 0;
+            return false;
         case rfbAuthTooMany:
             DEBUG_VNC("Too many connections\n");
-            return 0;
+            return false;
         case rfbAuthOK:
             DEBUG_VNC("Authentication OK\n");
-            return 1;
+            return true;
         default:
             DEBUG_VNC("Unknown result of authentication: 0x%08X (%d)\n", auth_result, auth_result);
-            return 0;
+            return false;
     }
 }
 
-int arduinoVNC::_rfb_authenticate() {
+bool arduinoVNC::_rfb_authenticate() {
 
     CARD32 authscheme;
     CARD8 challenge_and_response[CHALLENGESIZE];
@@ -454,43 +480,53 @@ int arduinoVNC::_rfb_authenticate() {
         uint8_t nKnownSecTypes = sizeof(knownSecTypes);
 
         if(!read_from_rfb_server(sock, (char *) &nSecTypes, sizeof(nSecTypes))) {
-            return 0;
+            return false;
         }
 
         if(nSecTypes == 0) {
             if(!_read_conn_failed_reason()) {
-                return 0;
+                return false;
             }
         }
 
         secTypes = (CARD8 *) malloc(nSecTypes);
 
         if(!secTypes) {
-            return 0;
+            return false;
         }
 
         if(!read_from_rfb_server(sock, (char *) secTypes, nSecTypes)) {
             freeSec(secTypes);
-            return 0;
+            return false;
         }
-
-        /* Find first supported security type */
-        for(uint8_t j = 0; j < (int) nSecTypes; j++) {
-            for(uint8_t i = 0; i < nKnownSecTypes; i++) {
-                if(secTypes[j] == knownSecTypes[i]) {
-                    secType = secTypes[j];
+#ifdef VNC_SEC_TYPE_TIGHT
+        // Prefere rfbSecTypeTight
+        for(uint8_t i = 0; i < nSecTypes; i++) {
+            if(secTypes[i] == rfbSecTypeTight) {
+                secType = rfbSecTypeTight;
+                break;
+            }
+        }
+#endif
+        if(secType == rfbSecTypeInvalid) {
+            // use first supported security type
+            for(uint8_t x = 0; x < nSecTypes; x++) {
+                for(uint8_t i = 0; i < nKnownSecTypes; i++) {
+                    if(secTypes[x] == knownSecTypes[i]) {
+                        secType = secTypes[x];
+                        break;
+                    }
+                }
+                if(secType != rfbSecTypeInvalid) {
                     break;
                 }
-            }
-            if(secType != rfbSecTypeInvalid) {
-                break;
             }
         }
 
         freeSec(secTypes);
 
         if(!write_exact(sock, (char *) &secType, sizeof(secType))) {
-            return 0;
+            return false;
         }
 
         if(secType == rfbSecTypeInvalid) {
@@ -501,63 +537,70 @@ int arduinoVNC::_rfb_authenticate() {
     } else {
         // protocol Minor < 7
         if(!read_from_rfb_server(sock, (char *) &authscheme, 4)) {
-            return 0;
+            return false;
         }
         authscheme = Swap32IfLE(authscheme);
         if(authscheme == rfbSecTypeInvalid) {
             if(!_read_conn_failed_reason()) {
-                return 0;
+                return false;
             }
         }
     }
 
     switch(authscheme) {
         case rfbSecTypeInvalid:
-        case rfbSecTypeTight:
-            return 0;
-        case rfbSecTypeVncAuth:
-
-            if(!opt.password || *(opt.password) == 0x00) {
-                DEBUG_VNC("Server ask for password? but no Password is set.\n");
-                return 0;
-            }
-
-            if(!read_from_rfb_server(sock, (char *) challenge_and_response, CHALLENGESIZE)) {
-                return 0;
-            }
-
-            vncEncryptBytes(challenge_and_response, opt.password);
-            if(!write_exact(sock, (char *) challenge_and_response, CHALLENGESIZE)) {
-                return 0;
-            }
-
-            return _read_authentication_result();
+            return false;
+            break;
         case rfbSecTypeNone:
             if(protocolMinorVersion >= 8) {
                 return _read_authentication_result();
             }
+            return true;
+            break;
+        case rfbSecTypeTight:
+#ifdef VNC_SEC_TYPE_TIGHT
+            //todo implement rfbSecTypeTight
+#endif
+            return false;
+            break;
+        case rfbSecTypeVncAuth:
+
+            if(!opt.password || *(opt.password) == 0x00) {
+                DEBUG_VNC("Server ask for password? but no Password is set.\n");
+                return false;
+            }
+
+            if(!read_from_rfb_server(sock, (char *) challenge_and_response, CHALLENGESIZE)) {
+                return false;
+            }
+
+            vncEncryptBytes(challenge_and_response, opt.password);
+            if(!write_exact(sock, (char *) challenge_and_response, CHALLENGESIZE)) {
+                return false;
+            }
+            return _read_authentication_result();
             break;
     }
 
-    return 0;
+    return false;
 }
 
-int arduinoVNC::_rfb_initialise_client() {
+bool arduinoVNC::_rfb_initialise_client() {
     rfbClientInitMsg cl;
     cl.shared = opt.shared;
     if(!write_exact(sock, (char *) &cl, sz_rfbClientInitMsg)) {
-        return 0;
+        return false;
     }
 
-    return 1;
+    return true;
 }
 
-int arduinoVNC::_rfb_initialise_server() {
+bool arduinoVNC::_rfb_initialise_server() {
     int len;
     rfbServerInitMsg si;
 
     if(!read_from_rfb_server(sock, (char *) &si, sz_rfbServerInitMsg)) {
-        return 0;
+        return false;
     }
 
     opt.server.width = Swap16IfLE(si.framebufferWidth);
@@ -568,7 +611,8 @@ int arduinoVNC::_rfb_initialise_server() {
     opt.server.height = min(opt.client.height, opt.server.height);
 
     opt.server.bpp = si.format.bitsPerPixel;
-    opt.server.depth = si.format.bigEndian;
+    opt.server.depth = si.format.depth;
+    opt.server.bigendian = si.format.bigEndian;
     opt.server.truecolour = si.format.trueColour;
 
     opt.server.redmax = Swap16IfLE(si.format.redMax);
@@ -582,17 +626,23 @@ int arduinoVNC::_rfb_initialise_server() {
     opt.server.name = (char *) malloc(sizeof(char) * len + 1);
 
     if(!read_from_rfb_server(sock, opt.server.name, len)) {
-        return 0;
+        return false;
     }
+    opt.server.name[len] = 0x00;
 
-    return 1;
+    DEBUG_VNC("[VNC-SERVER] VNC Server config - Name: %s\n", opt.server.name);
+    DEBUG_VNC(" - width:%d      height:%d\n", Swap16IfLE(si.framebufferWidth), Swap16IfLE(si.framebufferHeight));
+    DEBUG_VNC(" - bpp:%d        depth:%d       bigendian:%d     truecolor:%d\n", opt.server.bpp, opt.server.depth, opt.server.bigendian, opt.server.truecolour);
+    DEBUG_VNC(" - redmax:%d     greenmax:%d    bluemax:%d\n", opt.server.redmax, opt.server.greenmax, opt.server.bluemax);
+    DEBUG_VNC(" - redshift:%d   greenshift:%d  blueshift:%d\n", opt.server.redshift, opt.server.greenshift, opt.server.blueshift);
+    return true;
 }
 
 //#############################################################################################
 //                                      Connection handling
 //#############################################################################################
 
-int arduinoVNC::rfb_set_format_and_encodings() {
+bool arduinoVNC::rfb_set_format_and_encodings() {
     uint8_t num_enc = 0;
     rfbSetPixelFormatMsg pf;
     rfbSetEncodingsMsg em;
@@ -611,12 +661,12 @@ int arduinoVNC::rfb_set_format_and_encodings() {
     pf.format.blueShift = opt.client.blueshift;
 
     if(!write_exact(sock, (char*) &pf, sz_rfbSetPixelFormatMsg)) {
-        return 0;
+        return false;
     }
 
     em.type = rfbSetEncodings;
 
-    DEBUG_VNC("Supported Encodings:\n");
+    DEBUG_VNC("[VNC-CLIENT] Supported Encodings:\n");
 #ifdef VNC_TIGHT
     enc[num_enc++] = Swap32IfLE(rfbEncodingTight);
     DEBUG_VNC(" - Tight\n");
@@ -647,15 +697,24 @@ int arduinoVNC::rfb_set_format_and_encodings() {
     enc[num_enc++] = Swap32IfLE(rfbEncodingRaw);
     DEBUG_VNC(" - Raw\n");
 
-    DEBUG_VNC("Supported Special Encodings:\n");
+    DEBUG_VNC("[VNC-CLIENT] Supported Special Encodings:\n");
 
 #ifdef VNC_RICH_CURSOR
-    /* Track cursor locally */
-    if (opt.localcursor) {
-        enc[num_enc++] = Swap32IfLE(rfbEncodingRichCursor);
-        DEBUG_VNC(" - RichCursor\n");
-    }
+    enc[num_enc++] = Swap32IfLE(rfbEncodingRichCursor);
+    DEBUG_VNC(" - RichCursor\n");
+
+    enc[num_enc++] = Swap32IfLE(rfbEncodingXCursor);
+    DEBUG_VNC(" - XCursor\n");
 #endif
+
+    enc[num_enc++] = Swap32IfLE(rfbEncodingPointerPos);
+    DEBUG_VNC(" - CursorPos\n");
+
+    //enc[num_enc++] = Swap32IfLE(rfbEncodingLastRect);
+    //DEBUG_VNC(" - LastRect\n");
+
+    //enc[num_enc++] = Swap32IfLE(rfbEncodingContinuousUpdates);
+    //DEBUG_VNC(" - ContinuousUpdates\n");
 
 #if 0
     if (opt.client.compresslevel <= 9) {
@@ -669,17 +728,23 @@ int arduinoVNC::rfb_set_format_and_encodings() {
     em.nEncodings = Swap16IfLE(num_enc);
 
     if(!write_exact(sock, (char*) &em, sz_rfbSetEncodingsMsg)) {
-        return 0;
+        return false;
     }
 
     if(!write_exact(sock, (char*) &enc, num_enc * 4)) {
-        return 0;
+        return false;
     }
 
-    return 1;
+    DEBUG_VNC("[VNC-CLIENT] Client pixel format:\n");
+    DEBUG_VNC(" - width:%d      height:%d\n", opt.client.width, opt.client.height);
+    DEBUG_VNC(" - bpp:%d        depth:%d        bigEndian:%d    trueColor:%d\n", opt.client.bpp, opt.client.depth, opt.client.bigendian, opt.client.truecolour);
+    DEBUG_VNC(" - red-max:%d    green-max:%d    blue-max:%d\n", opt.client.redmax, opt.client.greenmax, opt.client.bluemax);
+    DEBUG_VNC(" - red-shift:%d  green-shift:%d  blue-shift:%d\n", opt.client.redshift, opt.client.greenshift, opt.client.blueshift);
+
+    return true;
 }
 
-int arduinoVNC::rfb_send_update_request(int incremental) {
+bool arduinoVNC::rfb_send_update_request(int incremental) {
     rfbFramebufferUpdateRequestMsg urq = { 0 };
 
     urq.type = rfbFramebufferUpdateRequest;
@@ -694,20 +759,21 @@ int arduinoVNC::rfb_send_update_request(int incremental) {
     urq.w = Swap16IfLE(urq.w);
     urq.h = Swap16IfLE(urq.h);
 
-    if(!write_exact(sock, (char*) &urq, sz_rfbFramebufferUpdateRequestMsg))
-        return 0;
+    if(!write_exact(sock, (char*) &urq, sz_rfbFramebufferUpdateRequestMsg)) {
+        return false;
+    }
 
-    return 1;
+    return true;
 }
 
-int arduinoVNC::rfb_handle_server_message() {
+bool arduinoVNC::rfb_handle_server_message() {
 
     rfbServerToClientMsg msg = { 0 };
     rfbFramebufferUpdateRectHeader rectheader = { 0 };
 
     if(TCPclient.available()) {
         if(!read_from_rfb_server(sock, (char*) &msg, 1)) {
-            return 0;
+            return false;
         }
         switch(msg.type) {
             case rfbFramebufferUpdate:
@@ -726,67 +792,73 @@ int arduinoVNC::rfb_handle_server_message() {
 #ifdef FPS_BENCHMARK
                     unsigned long encodingStart = micros();
 #endif
-                    int encodingResult = 0;
+                    bool encodingResult = false;
                     //wdt_disable();
                     switch(rectheader.encoding) {
                         case rfbEncodingRaw:
                             encodingResult = _handle_raw_encoded_message(rectheader);
                             break;
                         case rfbEncodingCopyRect:
-                            encodingResult =_handle_copyrect_encoded_message(rectheader);
+                            encodingResult = _handle_copyrect_encoded_message(rectheader);
                             break;
 #ifdef VNC_RRE
-                            case rfbEncodingRRE:
-                                encodingResult = _handle_rre_encoded_message(rectheader);
+                        case rfbEncodingRRE:
+                            encodingResult = _handle_rre_encoded_message(rectheader);
                             break;
 #endif
 #ifdef VNC_CORRE
-                            case rfbEncodingCoRRE:
-                                encodingResult =_handle_corre_encoded_message(rectheader);
+                        case rfbEncodingCoRRE:
+                            encodingResult = _handle_corre_encoded_message(rectheader);
                             break;
 #endif
 #ifdef VNC_HEXTILE
                         case rfbEncodingHextile:
-                            encodingResult =_handle_hextile_encoded_message(rectheader);
+                            encodingResult = _handle_hextile_encoded_message(rectheader);
                             break;
 #endif
 #ifdef VNC_TIGHT
                             case rfbEncodingTight:
-                                encodingResult =_handle_tight_encoded_message(rectheader);
+                            encodingResult =_handle_tight_encoded_message(rectheader);
                             break;
 #endif
 #ifdef VNC_ZLIB
                             case rfbEncodingZlib:
-                                encodingResult =_handle_zlib_encoded_message(rectheader);
+                            encodingResult =_handle_zlib_encoded_message(rectheader);
                             break;
 #endif
 #ifdef VNC_RICH_CURSOR
+                            case rfbEncodingXCursor:
                             case rfbEncodingRichCursor:
-                                encodingResult =_handle_richcursor_message(rectheader);
+                            encodingResult = _handle_richcursor_message(rectheader);
                             break;
 #endif
+                        case rfbEncodingPointerPos:
+                            encodingResult = _handle_cursor_pos_message(rectheader);
+                            break;
+                        case rfbEncodingContinuousUpdates:
+                            encodingResult = _handle_server_continuous_updates_message(rectheader);
+                            break;
                         case rfbEncodingLastRect:
-                            DEBUG_VNC("LAST\n");
-                            encodingResult = 1;
+                            DEBUG_VNC("[rfbEncodingLastRect] LAST\n");
+                            encodingResult = true;
                             break;
                         default:
-                            DEBUG_VNC("Unknown encoding 0x%08X\n", rectheader.encoding);
+                            DEBUG_VNC("Unknown encoding 0x%08X %d\n", rectheader.encoding, rectheader.encoding);
                             break;
                     }
-
 
 #ifdef FPS_BENCHMARK
                     unsigned long encodingTime = micros() - encodingStart;
                     double fps = ((double) (1 * 1000 * 1000) / (double) encodingTime);
-                    os_printf("[Benchmark][0x%08X]\t us: %d \tfps: %s \tHeap: %d\n", rectheader.encoding, encodingTime, String(fps, 2).c_str(), ESP.getFreeHeap());
+                    os_printf("[Benchmark][0x%08X][%d]\t us: %d \tfps: %s \tHeap: %d\n", rectheader.encoding, rectheader.encoding, encodingTime, String(fps, 2).c_str(), ESP.getFreeHeap());
 #endif
                     //wdt_enable(0);
                     if(!encodingResult) {
-                        DEBUG_VNC("[0x%08X] encoding Faild!\n", rectheader.encoding);
+                        DEBUG_VNC("[0x%08X][%d] encoding Faild!\n", rectheader.encoding, rectheader.encoding);
                         disconnect();
-                        return 0;
+                        return false;
                     } else {
-                       //DEBUG_VNC("[0x%08X] encoding ok!\n", rectheader.encoding);
+                        //DEBUG_VNC("[0x%08X] encoding ok!\n", rectheader.encoding);
                     }
 
                     /* Now we may discard "soft cursor locks". */
@@ -803,22 +875,22 @@ int arduinoVNC::rfb_handle_server_message() {
             case rfbServerCutText:
                 if(!_handle_server_cut_text_message(&msg)) {
                     disconnect();
-                    return 0;
+                    return false;
                 }
                 break;
             default:
                 DEBUG_VNC("Unknown server message. Type: %d\n", msg.type);
                 disconnect();
-                return 0;
+                return false;
                 break;
         }
-        return 1;
+        return true;
     } else {
-        return 0;
+        return false;
     }
 }
 
-int arduinoVNC::rfb_update_mouse() {
+bool arduinoVNC::rfb_update_mouse() {
     rfbPointerEventMsg msg;
 
     if(mousestate.x < 0)
@@ -848,7 +920,7 @@ int arduinoVNC::rfb_update_mouse() {
     return (write_exact(sock, (char*) &msg, sz_rfbPointerEventMsg));
 }
 
-int arduinoVNC::rfb_send_key_event(int key, int down_flag) {
+bool arduinoVNC::rfb_send_key_event(int key, int down_flag) {
     rfbKeyEventMsg ke;
 
     ke.type = rfbKeyEvent;
@@ -888,7 +960,7 @@ void arduinoVNC::rfb_get_rgb_from_data(int *r, int *g, int *b, char *data) {
 //                                      Encode handling
 //#############################################################################################
 
-int arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg * msg) {
+bool arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg * msg) {
 
     DEBUG_VNC("[_handle_server_cut_text_message] work...\n");
 
@@ -896,19 +968,19 @@ int arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg * msg) {
     char *buf;
 
     if(!read_from_rfb_server(sock, ((char*) &msg->sct) + 1, sz_rfbServerCutTextMsg - 1)) {
-        return 0;
+        return false;
     }
     size = Swap32IfLE(msg->sct.length);
 
     buf = (char *) malloc((sizeof(char) * size) + 1);
     if(!buf) {
         DEBUG_VNC("[_handle_server_cut_text_message] no memory!\n");
-        return 0;
+        return false;
     }
 
     if(!read_from_rfb_server(sock, buf, size)) {
         freeSec(buf);
-        return 0;
+        return false;
     }
 
     buf[size] = 0;
@@ -916,10 +988,10 @@ int arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg * msg) {
     DEBUG_VNC("[_handle_server_cut_text_message] msg: %s\n", buf);
 
     freeSec(buf);
-    return 1;
+    return true;
 }
 
-int arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
+bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
 
     uint32_t maxSize = (ESP.getFreeHeap() / 4); // max use 20% of the free HEAP
     uint32_t msgPixelTotal = (rectheader.r.w * rectheader.r.h);
@@ -943,7 +1015,7 @@ int arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader recth
     buf = (char *) malloc(msgSize);
     if(!buf) {
         DEBUG_VNC("[_handle_raw_encoded_message] TO LESS MEMEORE TO HANDLE DATA!");
-        return 0;
+        return false;
     }
 
     while(msgPixelTotal) {
@@ -956,7 +1028,7 @@ int arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader recth
 
         if(!read_from_rfb_server(sock, buf, msgSize)) {
             freeSec(buf);
-            return 0;
+            return false;
         }
 
         display->area_update_data(buf, msgPixel);
@@ -970,18 +1042,18 @@ int arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader recth
     freeSec(buf);
 
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] ------------------------ Fin ------------------------\n");
-    return 1;
+    return true;
 }
 
-int arduinoVNC::_handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
+bool arduinoVNC::_handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
     int src_x, src_y;
 
     if(!read_from_rfb_server(sock, (char*) &src_x, 2)) {
-        return 0;
+        return false;
     }
 
     if(!read_from_rfb_server(sock, (char*) &src_y, 2)) {
-        return 0;
+        return false;
     }
 
     /* If RichCursor encoding is used, we should extend our
@@ -989,23 +1061,23 @@ int arduinoVNC::_handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader 
      rectangle) to the source rectangle as well. */
     //SoftCursorLockArea(src_x, src_y, rectheader.r.w, rectheader.r.h);
     display->copy_rect(Swap16IfLE(src_x), Swap16IfLE(src_y), rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
-    return 1;
+    return true;
 }
 
 #ifdef VNC_RRE
-int arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
+bool arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
     rfbRREHeader header;
     uint16_t colour;
     CARD16 rect[4];
 
     if(!read_from_rfb_server(sock, (char *) &header, sz_rfbRREHeader)) {
-        return 0;
+        return false;
     }
     header.nSubrects = Swap32IfLE(header.nSubrects);
 
     /* draw background rect */
     if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
-        return 0;
+        return false;
     }
 
     display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, colour);
@@ -1013,56 +1085,56 @@ int arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader recth
     /* subrect pixel values */
     for(uint32_t i = 0; i < header.nSubrects; i++) {
         if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
-            return 0;
+            return false;
         }
         if(!read_from_rfb_server(sock, (char *) &rect, sizeof(rect)))
-        return 0;
+            return false;
         display->draw_rect(
-                Swap16IfLE(rect[0]) + rectheader.r.x,
-                Swap16IfLE(rect[1]) + rectheader.r.y, Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), colour);
+        Swap16IfLE(rect[0]) + rectheader.r.x,
+        Swap16IfLE(rect[1]) + rectheader.r.y, Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), colour);
     }
 
-    return 1;
+    return true;
 }
 #endif
 
 #ifdef VNC_CORRE
-int arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
+bool arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
     rfbRREHeader header;
     uint16_t colour;
     CARD8 rect[4];
 
     if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
-        return 0;
+        return false;
     }
     if(!read_from_rfb_server(sock, (char *) &header, sz_rfbRREHeader)) {
-        return 0;
+        return false;
     }
     header.nSubrects = Swap32IfLE(header.nSubrects);
 
     /* draw background rect */
     if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
-        return 0;
+        return false;
     }
     display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, colour);
 
     /* subrect pixel values */
     for(uint32_t i = 0; i < header.nSubrects; i++) {
         if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
-            return 0;
+            return false;
         }
         if(!read_from_rfb_server(sock, (char *) &rect, sizeof(rect))) {
-            return 0;
+            return false;
         }
         display->draw_rect(rect[0] + rectheader.r.x, rect[1] + rectheader.r.y, rect[2], rect[3], colour);
     }
-    return 1;
+    return true;
 }
 #endif
 
 #ifdef VNC_HEXTILE
-int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
-    uint32_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
+bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
+    uint32_t rect_x, rect_y, rect_w, rect_h, rect_x_end, rect_y_end, rect_x_max, rect_y_max, i = 0, j = 0;
     uint32_t rect_xW, rect_yW;
 
     uint32_t tile_w = 16, tile_h = 16;
@@ -1070,14 +1142,17 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
 
     CARD8 subrect_encoding;
 
+    uint16_t fgColor;
+    uint16_t bgColor;
+
     DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] x: %d y: %d w: %d h: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
 
     //alloc max nedded size
-    void * buf = malloc(255 * sizeof(HextileSubrectsColoured_t));
+    char * buf = (char *) malloc(255 * sizeof(HextileSubrectsColoured_t));
 
     if(!buf) {
         DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
-        return 0;
+        return false;
     }
 
     rect_w = remaining_w = rectheader.r.w;
@@ -1100,7 +1175,7 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
 
             if(!read_from_rfb_server(sock, (char*) &subrect_encoding, 1)) {
                 freeSec(buf);
-                return 0;
+                return false;
             }
 
             rect_xW = rect_x + (j * 16);
@@ -1120,36 +1195,33 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
 
                 if(!_handle_raw_encoded_message(rawUpdate)) {
                     freeSec(buf);
-                    return 0;
+                    return false;
                 }
 
             } else { /* subrect encoding is not raw */
-
-                uint16_t fgColor;
-                uint16_t bgColor;
 
                 /* check whether theres a new bg or fg colour specified */
                 if(subrect_encoding & rfbHextileBackgroundSpecified) {
                     if(!read_from_rfb_server(sock, (char *) &bgColor, sizeof(bgColor))) {
                         freeSec(buf);
-                        return 0;
+                        return false;
                     }
                 }
 
                 if(subrect_encoding & rfbHextileForegroundSpecified) {
                     if(!read_from_rfb_server(sock, (char *) &fgColor, sizeof(fgColor))) {
                         freeSec(buf);
-                        return 0;
+                        return false;
                     }
                 }
 
-                //DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] subrect: x: %d y: %d w: %d h: %d\n", rect_xW, rect_yW, tile_w, tile_h);
+               //DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] subrect: x: %d y: %d w: %d h: %d\n", rect_xW, rect_yW, tile_w, tile_h);
 
 #ifdef VNC_FRAMEBUFFER
                 if(!fb.begin(tile_w, tile_h)) {
                     DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
                     freeSec(buf);
-                    return 0;
+                    return false;
                 }
 
                 /* fill the background */
@@ -1163,38 +1235,37 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
                     uint8_t nr_subr = 0;
                     if(!read_from_rfb_server(sock, (char*) &nr_subr, 1)) {
                         freeSec(buf);
-                        return 0;
+                        return false;
                     }
-
+                    //DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d\n", nr_subr);
                     if(nr_subr) {
                         if(subrect_encoding & rfbHextileSubrectsColoured) {
-                            if(!read_from_rfb_server(sock, (char *) buf, nr_subr * sizeof(HextileSubrectsColoured_t))) {
+                            if(!read_from_rfb_server(sock, buf, nr_subr * 4)) {
                                 freeSec(buf);
-                                return 0;
+                                return false;
                             }
 
-                            HextileSubrectsColoured_t * bufP = (HextileSubrectsColoured_t *)  buf;
+                            HextileSubrectsColoured_t * bufPC = (HextileSubrectsColoured_t *) buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
-
-                               // DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] Coloured nr_subr: %d bufP: 0x%08X heap: %d\n", n, bufP, ESP.getFreeHeap());
+                              //  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] Coloured nr_subr: %d bufPC: 0x%08X\n", n, bufPC);
 #ifdef VNC_FRAMEBUFFER
-                                fb.draw_rect(bufP->x, bufP->y, bufP->w + 1, bufP->h + 1, bufP->color);
+                                fb.draw_rect(bufPC->x, bufPC->y, bufPC->w + 1, bufPC->h + 1, bufPC->color);
 #else
-                                display->draw_rect(rect_xW + bufP->x, rect_yW + bufP->y, bufP->w+1, bufP->h+1, bufP->color);
+                                display->draw_rect(rect_xW + bufPC->x, rect_yW + bufPC->y, bufPC->w+1, bufPC->h+1, bufPC->color);
 #endif
-                                bufP++;
+                                bufPC++;
                             }
                         } else {
 
-                            if(!read_from_rfb_server(sock, (char *) buf, nr_subr * sizeof(HextileSubrects_t))) {
+                            if(!read_from_rfb_server(sock, buf, nr_subr * 2)) {
                                 freeSec(buf);
-                                return 0;
+                                return false;
                             }
 
                             HextileSubrects_t * bufP = (HextileSubrects_t *) buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
-                             //   DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d bufP: 0x%08X heap: %d\n", n, bufP, ESP.getFreeHeap());
 
+                              //  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d bufP: 0x%08X\n", n, bufP);
 #ifdef VNC_FRAMEBUFFER
                                 fb.draw_rect(bufP->x, bufP->y, bufP->w + 1, bufP->h + 1, fgColor);
 #else
@@ -1224,15 +1295,94 @@ int arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader r
     freeSec(buf);
 
     DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] ------------------------ Fin ------------------------\n");
-    return 1;
+    return true;
 }
 #endif
 
+bool arduinoVNC::_handle_cursor_pos_message(rfbFramebufferUpdateRectHeader rectheader) {
+    DEBUG_VNC_RICH_CURSOR("[HandleCursorPos] x: %d y: %d w: %d h: %d\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+    return true;
+}
+
 #ifdef VNC_RICH_CURSOR
-int arduinoVNC::_handle_richcursor_message(rfbFramebufferUpdateRectHeader rectheader) {
-    return HandleRichCursor(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+bool arduinoVNC::_handle_richcursor_message(rfbFramebufferUpdateRectHeader rectheader) {
+//todo handle Cursor
+    DEBUG_VNC_RICH_CURSOR("[HandleRichCursor] x: %d y: %d w: %d h: %d\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+
+    CARD16 width = rectheader.r.w;
+    CARD16 height = rectheader.r.h;
+
+    size_t bytesPerRow, bytesMaskData;
+
+    bytesPerRow = (width + 7) / 8;
+    bytesMaskData = bytesPerRow * height;
+
+//FreeCursors(True);
+
+    if(width * height == 0) {
+        return true;
+    }
+
+    /* Read cursor pixel data. */
+    if(richCursorData) {
+        freeSec(richCursorData);
+    }
+    richCursorData = (uint8_t *) malloc(width * height * (opt.client.bpp / 8));
+    if(richCursorData == NULL)
+    return false;
+
+    if(!read_from_rfb_server(sock, (char *) richCursorData, width * height * (opt.client.bpp / 8))) {
+        freeSec(richCursorData);
+        return false;
+    }
+
+    /* Read and decode mask data. */
+    uint8_t * buf = (uint8_t *) malloc(bytesMaskData);
+    if(buf == NULL) {
+        freeSec(richCursorData);
+        return false;
+    }
+
+    if(!read_from_rfb_server(sock, (char *)buf, bytesMaskData)) {
+        freeSec(richCursorData);
+        freeSec(buf);
+        return false;
+    }
+
+    if(richCursorMask) {
+        freeSec(richCursorMask);
+    }
+    richCursorMask = (uint8_t *) malloc(width * height);
+    if(richCursorMask == NULL) {
+        freeSec(richCursorData);
+        freeSec(buf);
+        return false;
+    }
+    int32_t x, y, b;
+    uint8_t * ptr = richCursorMask;
+    for(y = 0; y < height; y++) {
+        for(x = 0; x < width / 8; x++) {
+            for(b = 7; b >= 0; b--) {
+                *ptr++ = buf[y * bytesPerRow + x] >> b & 1;
+            }
+        }
+        for(b = 7; b > 7 - width % 8; b--) {
+            *ptr++ = buf[y * bytesPerRow + x] >> b & 1;
+        }
+    }
+
+    free(buf);
+
+//todo Render Cursor
+
+    return true;
 }
 #endif
+
+bool arduinoVNC::_handle_server_continuous_updates_message(rfbFramebufferUpdateRectHeader rectheader) {
+    DEBUG_VNC_RICH_CURSOR("[rfbEncodingContinuousUpdates] x: %d y: %d w: %d h: %d\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+    return false;
+}
 
 //#############################################################################################
 //                                      Encryption
@@ -1271,12 +1421,7 @@ void arduinoVNC::vncEncryptBytes(unsigned char *bytes, char *passwd) {
 //#############################################################################################
 
 #ifdef VNC_RICH_CURSOR
-int arduinoVNC::HandleRichCursor(int x, int y, int w, int h) {
-    //todo handle Cursor
-    return 0;
-}
-
 void arduinoVNC::SoftCursorMove(int x, int y) {
-    //todo handle Cursor
+//todo handle Cursor
 }
 #endif

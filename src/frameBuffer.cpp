@@ -17,8 +17,8 @@
 FrameBuffer::FrameBuffer() {
     w = 0;
     h = 0;
-    buffer = 0;
     size = 0;
+    buffer = 0;
 }
 
 FrameBuffer::~FrameBuffer() {
@@ -57,7 +57,7 @@ bool FrameBuffer::begin(uint32_t _w, uint32_t _h) {
         size = newSize;
         return true;
     } else {
-        os_printf("[FrameBuffer::begin] no buffer: 0x%08X Heap: %d <--------------------------------------\n", buffer, ESP.getFreeHeap());
+        os_printf("[FrameBuffer::begin] no buffer: 0x%08X Heap: %d <--------------------------------------\n", (size_t)buffer, ESP.getFreeHeap());
         buffer = 0;
         size = 0;
         return false;
@@ -84,12 +84,14 @@ void FrameBuffer::draw_rect(uint32_t x, uint32_t y, uint32_t rw, uint32_t rh, ui
         return;
     }
 
-    if(x + rw > w || y + rh > h) {
+    if((((y + rh) * (x + rw)) * sizeof(color)) > size) {
         os_printf("[FrameBuffer::draw_rect] out of index!  <--------------------------------------\n");
+        os_printf("[FrameBuffer::draw_rect] w: %d h: %d - x: %d y: %d rw: %d rh: %d color: 0x%04X\n", w, h, x, y, rw, rh, color);
+        delay(50);
         return;
     }
 
-       // os_printf("[FrameBuffer::draw_rect] x: %d y: %d rw: %d rh: %d color: 0x%04X\n", x, y, rw, rh, color);
+      //  os_printf("[FrameBuffer::draw_rect] x: %d y: %d rw: %d rh: %d color: 0x%04X\n", x, y, rw, rh, color);
        // delay(10);
 
     uint8_t * ptr = buffer + (((y * w) + x) * sizeof(color));
