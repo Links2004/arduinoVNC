@@ -233,19 +233,18 @@ bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
      */
     while(n > 0) {
         if(!TCPclient.connected()) {
-            DEBUG_VNC("[read_from_rfb_server] Receive not connected - 1!\n");
+            DEBUG_VNC("[read_from_rfb_server] not connected!\n");
             return false;
         }
-        while(!TCPclient.available()) {
-            if(!TCPclient.connected()) {
-                DEBUG_VNC("[read_from_rfb_server] Receive not connected - 2!\n");
-                return false;
-            }
-            if((millis() - t) > VNC_TCP_TIMEOUT) {
-                DEBUG_VNC("[read_from_rfb_server] Receive TIMEOUT!\n");
-                return false;
-            }
+
+        if((millis() - t) > VNC_TCP_TIMEOUT) {
+            DEBUG_VNC("[read_from_rfb_server] receive TIMEOUT!\n");
+            return false;
+        }
+
+        if(!TCPclient.available()) {
             delay(0);
+            continue;
         }
 
         len = TCPclient.read((uint8_t*) out, n);
@@ -1215,7 +1214,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                     }
                 }
 
-               //DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] subrect: x: %d y: %d w: %d h: %d\n", rect_xW, rect_yW, tile_w, tile_h);
+                //DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] subrect: x: %d y: %d w: %d h: %d\n", rect_xW, rect_yW, tile_w, tile_h);
 
 #ifdef VNC_FRAMEBUFFER
                 if(!fb.begin(tile_w, tile_h)) {
@@ -1247,7 +1246,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
 
                             HextileSubrectsColoured_t * bufPC = (HextileSubrectsColoured_t *) buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
-                              //  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] Coloured nr_subr: %d bufPC: 0x%08X\n", n, bufPC);
+                                //  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] Coloured nr_subr: %d bufPC: 0x%08X\n", n, bufPC);
 #ifdef VNC_FRAMEBUFFER
                                 fb.draw_rect(bufPC->x, bufPC->y, bufPC->w + 1, bufPC->h + 1, bufPC->color);
 #else
@@ -1265,7 +1264,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                             HextileSubrects_t * bufP = (HextileSubrects_t *) buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
 
-                              //  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d bufP: 0x%08X\n", n, bufP);
+                                //  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d bufP: 0x%08X\n", n, bufP);
 #ifdef VNC_FRAMEBUFFER
                                 fb.draw_rect(bufP->x, bufP->y, bufP->w + 1, bufP->h + 1, fgColor);
 #else
