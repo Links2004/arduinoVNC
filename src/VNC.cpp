@@ -929,32 +929,6 @@ bool arduinoVNC::rfb_send_key_event(int key, int down_flag) {
     return (write_exact(sock, (char*) &ke, sz_rfbKeyEventMsg));
 }
 
-#if 0
-// not used need only performance  and is not needed
-void arduinoVNC::rfb_get_rgb_from_data(int *r, int *g, int *b, char *data) {
-    CARD16 foo16;
-
-    switch(opt.client.bpp) {
-        case 8:
-        DEBUG_VNC("FIXME unimplemented\n");
-        break;
-        case 16:
-        memcpy(&foo16, data, 2);
-        foo16 = Swap16IfLE(foo16);
-        *r = ((foo16 >> opt.client.redshift) & opt.client.redmax) << 3;
-        *g = ((foo16 >> opt.client.greenshift) & opt.client.greenmax) << 2;
-        *b = ((foo16 >> opt.client.blueshift) & opt.client.bluemax) << 3;
-        break;
-        case 24:
-        case 32:
-        *r = data[2] & 0x00FF;
-        *g = data[1] & 0x00FF;
-        *b = data[0] & 0x00FF;
-        break;
-    }
-}
-#endif
-
 //#############################################################################################
 //                                      Encode handling
 //#############################################################################################
@@ -1133,7 +1107,7 @@ bool arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader re
 
 #ifdef VNC_HEXTILE
 bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
-    uint32_t rect_x, rect_y, rect_w, rect_h, rect_x_end, rect_y_end, rect_x_max, rect_y_max, i = 0, j = 0;
+    uint32_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
     uint32_t rect_xW, rect_yW;
 
     uint32_t tile_w = 16, tile_h = 16;
