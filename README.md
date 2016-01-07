@@ -33,8 +33,19 @@ Submit issues to: https://github.com/Links2004/arduinoVNC/issues
 
 ### License and credits ###
 
-The library is licensed under [LGPLv2.1](https://github.com/Links2004/arduinoVNC/blob/master/LICENSE)
-
+The library is licensed under [GPLv2](https://github.com/Links2004/arduinoVNC/blob/master/LICENSE)
 
 D3DES by Richard Outerbridge (public domain)
+
+VNC code base (GPLv2)
+Thanks to all that worked on the original VNC implementation
+```
+Copyright (C) 2009-2010, 2012 D. R. Commander. All Rights Reserved.
+Copyright (C) 2004-2008 Sun Microsystems, Inc. All Rights Reserved.
+Copyright (C) 2004 Landmark Graphics Corporation. All Rights Reserved.
+Copyright (C) 2000-2006 Constantin Kaplinsky. All Rights Reserved.
+Copyright (C) 2000 Tridia Corporation. All Rights Reserved.
+Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
+```
+
 

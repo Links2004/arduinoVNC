@@ -1,8 +1,28 @@
 /*
- * VNC.h
+ * @file VNC.h
+ * @date 11.05.2015
+ * @author Markus Sattler
  *
- *  Created on: 11.05.2015
- *      Author: links
+ * Copyright (c) 2015 Markus Sattler. All rights reserved.
+ * This file is part of the VNC client for Arduino.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, a copy can be downloaded from
+ * http://www.gnu.org/licenses/gpl.html, or obtained by writing to the
+ * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ *
+ * Thanks to all that worked on the original VNC implementation
+ *
  */
 
 #ifndef VNC_H_
@@ -10,7 +30,7 @@
 
 /// TCP layer
 #define USE_ARDUINO_TCP
-#define VNC_TCP_TIMEOUT 800
+#define VNC_TCP_TIMEOUT 5000
 
 /// VNC Encodes
 #define VNC_RRE
@@ -32,11 +52,13 @@
 
 //#define SLOW_LOOP 250
 
+
+/// debugging
 #define DEBUG_VNC(...) os_printf( __VA_ARGS__ )
 
 #define DEBUG_VNC_RAW(...)
 #define DEBUG_VNC_HEXTILE(...)
-//#define DEBUG_VNC_RICH_CURSOR(...)
+#define DEBUG_VNC_RICH_CURSOR(...)
 
 #ifndef DEBUG_VNC
 #define DEBUG_VNC(...)
@@ -54,9 +76,9 @@
 #define DEBUG_VNC_RICH_CURSOR(...) DEBUG_VNC( __VA_ARGS__ )
 #endif
 
+
+/// more save free
 #define freeSec(ptr) free(ptr); ptr = 0
-
-
 
 #include "Arduino.h"
 
@@ -71,7 +93,6 @@
 #endif
 #endif
 #endif
-
 
 #define MAXPWLEN 8
 #define CHALLENGESIZE 16

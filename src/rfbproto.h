@@ -679,7 +679,7 @@ typedef struct _rfbCoRRERectangle {
 #define rfbHextileExtractW(byte) (((byte) >> 4) + 1)
 #define rfbHextileExtractH(byte) (((byte) & 0xf) + 1)
 
-typedef struct __attribute__((packed)) {
+typedef struct __attribute__((packed, aligned(1))) {
         unsigned color :16;
         unsigned y :4;
         unsigned x :4;
@@ -689,7 +689,7 @@ typedef struct __attribute__((packed)) {
 } HextileSubrectsColoured_t ;
 
 
-typedef struct __attribute__((packed)) {
+typedef struct __attribute__((packed, aligned(1))) {
         unsigned y :4;
         unsigned x :4;
 
