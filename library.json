@@ -1,0 +1,19 @@
+{
+  "name": "arduinoVNC",
+  "keywords": "VNC, rfbproto, client, image, rfb",
+  "description": "VNC Client for Arduino",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/Links2004/arduinoVNC.git"
+  },
+  "exclude": "tests",
+  "frameworks": "arduino",
+  "platforms": "esp8266",
+  "authors":
+  {
+    "name": "Markus Sattler",
+    "url": "https://github.com/Links2004",
+    "maintainer": true
+  }
+}
