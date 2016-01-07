@@ -150,16 +150,18 @@ void arduinoVNC::setPassword(String pass) {
 }
 
 void arduinoVNC::loop(void) {
+
 #ifdef ESP8266
     if(WiFi.status() != WL_CONNECTED) {
-        if(TCPclient.connected()) {
+        if(connected()) {
             disconnect();
         }
         return;
     }
 #endif
 
-    if(!TCPclient.connected()) {
+    if(!connected()) {
+        DEBUG_VNC("!connected\n");
         if(!rfb_connect_to_server(host.c_str(), port)) {
             DEBUG_VNC("Couldnt establish connection with the VNC server. Exiting\n");
             delay(500);
@@ -226,7 +228,11 @@ void arduinoVNC::reconnect(void) {
 }
 
 bool arduinoVNC::connected(void) {
+#ifdef ESP8266
+    return (TCPclient.status() == ESTABLISHED);
+#else
     return TCPclient.connected();
+#endif
 }
 
 //#############################################################################################
@@ -252,7 +258,7 @@ bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
      }
      */
     while(n > 0) {
-        if(!TCPclient.connected()) {
+        if(!connected()) {
             DEBUG_VNC("[read_from_rfb_server] not connected!\n");
             return false;
         }
@@ -282,7 +288,7 @@ bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
 }
 
 bool arduinoVNC::write_exact(int sock, char *buf, size_t n) {
-    if(!TCPclient.connected()) {
+    if(!connected()) {
         DEBUG_VNC("[write_exact] not connected!\n");
         return false;
     }
@@ -290,6 +296,9 @@ bool arduinoVNC::write_exact(int sock, char *buf, size_t n) {
 }
 
 bool arduinoVNC::set_non_blocking(int sock) {
+#ifdef ESP8266
+    TCPclient.setNoDelay(true);
+#endif
     return true;
 }
 
@@ -316,6 +325,7 @@ bool arduinoVNC::rfb_connect_to_server(const char *host, int port) {
     }
 
     DEBUG_VNC("[rfb_connect_to_server] Connected.\n");
+    set_non_blocking(sock);
     return true;
 #else
     struct hostent *he=NULL;
@@ -779,6 +789,7 @@ bool arduinoVNC::rfb_send_update_request(int incremental) {
     urq.h = Swap16IfLE(urq.h);
 
     if(!write_exact(sock, (char*) &urq, sz_rfbFramebufferUpdateRequestMsg)) {
+        DEBUG_VNC("[rfb_send_update_request] write_exact failed!\n");
         return false;
     }
 
@@ -903,10 +914,8 @@ bool arduinoVNC::rfb_handle_server_message() {
                 return false;
                 break;
         }
-        return true;
-    } else {
-        return false;
     }
+    return true;
 }
 
 bool arduinoVNC::rfb_update_mouse() {
