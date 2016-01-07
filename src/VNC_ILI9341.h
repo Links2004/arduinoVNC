@@ -27,6 +27,10 @@
 #ifndef VNC_ILI9341_H_
 #define VNC_ILI9341_H_
 
+#include "VNC_config.h"
+
+#ifdef VNC_ILI9341
+
 #include <Adafruit_ILI9341.h>
 #include "VNC_ILI9341.h"
 #include "VNC.h"
@@ -52,5 +56,7 @@ class ILI9341VNC: public VNCdisplay, public Adafruit_ILI9341 {
         void area_update_end(void);
 
 };
+
+#endif
 
 #endif /* MARKUS_VNC_ILI9341_H_ */

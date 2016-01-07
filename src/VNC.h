@@ -28,54 +28,7 @@
 #ifndef VNC_H_
 #define VNC_H_
 
-/// TCP layer
-#define USE_ARDUINO_TCP
-#define VNC_TCP_TIMEOUT 5000
-
-/// VNC Encodes
-#define VNC_RRE
-#define VNC_CORRE
-#define VNC_HEXTILE
-
-// not implementet yet
-//#define VNC_TIGHT
-//#define VNC_ZLIB
-//#define VNC_RICH_CURSOR
-//#define VNC_SEC_TYPE_TIGHT
-
-/// Buffers
-#define VNC_FRAMEBUFFER
-
-/// Testing
-//#define FPS_BENCHMARK
-//#define FPS_BENCHMARK_FULL
-
-//#define SLOW_LOOP 250
-
-
-/// debugging
-#define DEBUG_VNC(...) os_printf( __VA_ARGS__ )
-
-#define DEBUG_VNC_RAW(...)
-#define DEBUG_VNC_HEXTILE(...)
-#define DEBUG_VNC_RICH_CURSOR(...)
-
-#ifndef DEBUG_VNC
-#define DEBUG_VNC(...)
-#endif
-
-#ifndef DEBUG_VNC_RAW
-#define DEBUG_VNC_RAW(...) DEBUG_VNC( __VA_ARGS__ )
-#endif
-
-#ifndef DEBUG_VNC_HEXTILE
-#define DEBUG_VNC_HEXTILE(...) DEBUG_VNC( __VA_ARGS__ )
-#endif
-
-#ifndef DEBUG_VNC_RICH_CURSOR
-#define DEBUG_VNC_RICH_CURSOR(...) DEBUG_VNC( __VA_ARGS__ )
-#endif
-
+#include "VNC_config.h"
 
 /// more save free
 #define freeSec(ptr) free(ptr); ptr = 0

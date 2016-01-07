@@ -27,6 +27,11 @@
 #ifndef VNC_RA8875_H_
 #define VNC_RA8875_H_
 
+
+#include "VNC_config.h"
+
+#ifdef VNC_RA8875
+
 #include <Adafruit_RA8875.h>
 #include "VNC_RA8875.h"
 #include "VNC.h"
@@ -52,5 +57,6 @@ class RA8875VNC: public VNCdisplay, public Adafruit_RA8875 {
         void area_update_end(void);
 
 };
+#endif
 
-#endif /* MARKUS_VNC_RA8875_H_ */
+#endif /* VNC_RA8875_H_ */

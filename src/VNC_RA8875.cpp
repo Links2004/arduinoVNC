@@ -24,6 +24,11 @@
  *
  */
 
+
+#include "VNC_config.h"
+
+#ifdef VNC_RA8875
+
 #include "VNC.h"
 
 #include <Adafruit_RA8875.h>
@@ -71,3 +76,5 @@ void RA8875VNC::area_update_data(char *data, uint32_t pixel){
 void RA8875VNC::area_update_end(void){
     Adafruit_RA8875::area_update_end();
 }
+
+#endif

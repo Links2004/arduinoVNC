@@ -24,6 +24,10 @@
  *
  */
 
+#include "VNC_config.h"
+
+#ifdef VNC_ILI9341
+
 #include "VNC.h"
 
 #include <Adafruit_ILI9341.h>
@@ -71,3 +75,5 @@ void ILI9341VNC::area_update_data(char *data, uint32_t pixel){
 void ILI9341VNC::area_update_end(void){
     Adafruit_ILI9341::area_update_end();
 }
+
+#endif
