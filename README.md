@@ -3,8 +3,9 @@ VNC Client for Arduino
 
 a VNC Client for Arduino based on rfbproto.
 
-Example:
-<iframe width="854" height="480" src="https://www.youtube.com/embed/MA47npOtApc" frameborder="0" allowfullscreen></iframe>
+Video:
+
+[![VNC Client on ESP8266 + ILI9341](https://img.youtube.com/vi/MA47npOtApc/0.jpg)](https://www.youtube.com/watch?v=MA47npOtApc)
 
 ##### Supported features #####
  - Bell
