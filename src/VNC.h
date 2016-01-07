@@ -56,11 +56,8 @@
 #define Swap16IfLE(s) (s)
 #define Swap32IfLE(l) (l)
 #else
-#define Swap16IfLE(s) ((((s) & 0xff) << 8) | (((s) >> 8) & 0xff))
-#define Swap32IfLE(l) ((((l) & 0xff000000) >> 24) | \
-               (((l) & 0x00ff0000) >> 8)  | \
-               (((l) & 0x0000ff00) << 8)  | \
-               (((l) & 0x000000ff) << 24))
+#define Swap16IfLE(s) __builtin_bswap16(s)
+#define Swap32IfLE(l) __builtin_bswap32(l)
 #endif /* WORDS_BIGENDIAN */
 
 typedef uint8_t     CARD8;

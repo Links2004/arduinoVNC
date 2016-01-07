@@ -3,6 +3,9 @@ VNC Client for Arduino
 
 a VNC Client for Arduino based on rfbproto.
 
+Example:
+<iframe width="854" height="480" src="https://www.youtube.com/embed/MA47npOtApc" frameborder="0" allowfullscreen></iframe>
+
 ##### Supported features #####
  - Bell
  - CutText (clipboard)
