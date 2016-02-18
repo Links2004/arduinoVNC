@@ -28,7 +28,7 @@ Video:
  may run on Arduino DUE too.
 
 ##### Supported Displays #####
- - ILI9341
+ - ILI9341 [library](https://github.com/Links2004/Adafruit_ILI9341)
  
 more possible using ```VNCdisplay``` Interface
  
