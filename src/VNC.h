@@ -178,14 +178,16 @@ class arduinoVNC {
 
         void loop(void);
 
-
         int forceFullUpdate(void);
+
+        void setMaxFPS(uint16_t fps);
 
     private:
         bool onlyFullUpdate;
         int port;
         String host;
         String password;
+        uint16_t updateDelay;
 
 
         VNCdisplay * display;

@@ -91,7 +91,7 @@ void FrameBuffer::freeBuffer(void) {
     if(buffer) {
         //os_printf("[FrameBuffer::draw_rect] free: 0x%08X\n", buffer);
         free(buffer);
-        buffer = 0; // <-- importent!
+        buffer = 0;
         size = 0;
         //os_printf("[FrameBuffer::draw_rect] free: 0x%08X Done.\n", buffer);
     }

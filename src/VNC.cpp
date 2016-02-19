@@ -124,6 +124,8 @@ void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate) {
     opt.v_ratio = 1;
     opt.h_offset = 0;
     opt.v_offset = 0;
+
+    setMaxFPS(100);
 }
 
 void arduinoVNC::begin(const char *_host, uint16_t _port, bool _onlyFullUpdate) {
@@ -211,7 +213,11 @@ void arduinoVNC::loop(void) {
             //DEBUG_VNC("rfb_handle_server_message faild.\n");
             return;
         }
-        rfb_send_update_request(onlyFullUpdate ? 0 : 1);
+        static unsigned long lastUpdate;
+        if((millis() - lastUpdate) > updateDelay) {
+            rfb_send_update_request(onlyFullUpdate ? 0 : 1);
+            lastUpdate = millis();
+        }
     }
 #ifdef SLOW_LOOP
     delay(SLOW_LOOP);
@@ -221,6 +227,11 @@ void arduinoVNC::loop(void) {
 int arduinoVNC::forceFullUpdate(void) {
     return rfb_send_update_request(1);
 }
+
+void arduinoVNC::setMaxFPS(uint16_t fps) {
+    updateDelay = (1000/fps);
+}
+
 
 void arduinoVNC::reconnect(void) {
     // auto reconnect on next loop
@@ -995,12 +1006,16 @@ bool arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg * msg) {
 
 bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
 
-    uint32_t maxSize = (ESP.getFreeHeap() / 4); // max use 20% of the free HEAP
     uint32_t msgPixelTotal = (rectheader.r.w * rectheader.r.h);
     uint32_t msgPixel = msgPixelTotal;
     uint32_t msgSize = (msgPixel * (opt.client.bpp / 8));
-
+#ifdef VNC_SAVE_MEMORY
+    uint32_t maxSize = (ESP.getFreeHeap() / 4); // max use 20% of the free HEAP
     char *buf = NULL;
+#else
+    static uint32_t maxSize = VNC_RAW_BUFFER;
+    static char *buf = (char *) malloc(maxSize);
+#endif
 
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] x: %d y: %d w: %d h: %d bytes: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, msgSize);
 
@@ -1013,8 +1028,9 @@ bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rect
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] msgPixel: %d msgSize: %d\n", msgPixel, msgSize);
 
     display->area_update_start(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
-
+#ifdef VNC_SAVE_MEMORY
     buf = (char *) malloc(msgSize);
+#endif
     if(!buf) {
         DEBUG_VNC("[_handle_raw_encoded_message] TO LESS MEMEORE TO HANDLE DATA!");
         return false;
@@ -1029,7 +1045,9 @@ bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rect
         }
 
         if(!read_from_rfb_server(sock, buf, msgSize)) {
+#ifdef VNC_SAVE_MEMORY
             freeSec(buf);
+#endif
             return false;
         }
 
@@ -1041,7 +1059,9 @@ bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rect
 
     display->area_update_end();
 
-    freeSec(buf);
+#ifdef VNC_SAVE_MEMORY
+            freeSec(buf);
+#endif
 
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] ------------------------ Fin ------------------------\n");
     return true;
@@ -1150,8 +1170,11 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
     DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] x: %d y: %d w: %d h: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
 
     //alloc max nedded size
+#ifdef VNC_SAVE_MEMORY
     char * buf = (char *) malloc(255 * sizeof(HextileSubrectsColoured_t));
-
+#else
+    static char * buf = (char *) malloc(255 * sizeof(HextileSubrectsColoured_t));
+#endif
     if(!buf) {
         DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
         return false;
@@ -1176,7 +1199,9 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                 tile_w = remaining_w + 16;
 
             if(!read_from_rfb_server(sock, (char*) &subrect_encoding, 1)) {
+#ifdef VNC_SAVE_MEMORY
                 freeSec(buf);
+#endif
                 return false;
             }
 
@@ -1196,7 +1221,9 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                 rawUpdate.r.y = rect_yW;
 
                 if(!_handle_raw_encoded_message(rawUpdate)) {
-                    freeSec(buf);
+#ifdef VNC_SAVE_MEMORY
+                freeSec(buf);
+#endif
                     return false;
                 }
 
@@ -1205,14 +1232,18 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                 /* check whether theres a new bg or fg colour specified */
                 if(subrect_encoding & rfbHextileBackgroundSpecified) {
                     if(!read_from_rfb_server(sock, (char *) &bgColor, sizeof(bgColor))) {
-                        freeSec(buf);
+#ifdef VNC_SAVE_MEMORY
+                freeSec(buf);
+#endif
                         return false;
                     }
                 }
 
                 if(subrect_encoding & rfbHextileForegroundSpecified) {
                     if(!read_from_rfb_server(sock, (char *) &fgColor, sizeof(fgColor))) {
-                        freeSec(buf);
+#ifdef VNC_SAVE_MEMORY
+                freeSec(buf);
+#endif
                         return false;
                     }
                 }
@@ -1222,7 +1253,9 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
 #ifdef VNC_FRAMEBUFFER
                 if(!fb.begin(tile_w, tile_h)) {
                     DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
-                    freeSec(buf);
+#ifdef VNC_SAVE_MEMORY
+                freeSec(buf);
+#endif
                     return false;
                 }
 
@@ -1236,14 +1269,18 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                 if(subrect_encoding & rfbHextileAnySubrects) {
                     uint8_t nr_subr = 0;
                     if(!read_from_rfb_server(sock, (char*) &nr_subr, 1)) {
-                        freeSec(buf);
+#ifdef VNC_SAVE_MEMORY
+                freeSec(buf);
+#endif
                         return false;
                     }
                     //DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d\n", nr_subr);
                     if(nr_subr) {
                         if(subrect_encoding & rfbHextileSubrectsColoured) {
                             if(!read_from_rfb_server(sock, buf, nr_subr * 4)) {
-                                freeSec(buf);
+#ifdef VNC_SAVE_MEMORY
+                freeSec(buf);
+#endif
                                 return false;
                             }
 
@@ -1260,7 +1297,9 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                         } else {
 
                             if(!read_from_rfb_server(sock, buf, nr_subr * 2)) {
-                                freeSec(buf);
+#ifdef VNC_SAVE_MEMORY
+                freeSec(buf);
+#endif
                                 return false;
                             }
 
@@ -1290,11 +1329,12 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
         i++;
     }
 
+#ifdef VNC_SAVE_MEMORY
 #ifdef VNC_FRAMEBUFFER
     fb.freeBuffer();
 #endif
-
     freeSec(buf);
+#endif
 
     DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] ------------------------ Fin ------------------------\n");
     return true;

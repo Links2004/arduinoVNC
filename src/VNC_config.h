@@ -58,6 +58,13 @@
 
 //#define SLOW_LOOP 250
 
+/// Memory Options
+//#define VNC_SAVE_MEMORY
+
+#ifndef VNC_SAVE_MEMORY
+// 15KB raw input buffer
+#define VNC_RAW_BUFFER 15360
+#endif
 
 /// debugging
 #define DEBUG_VNC(...) os_printf( __VA_ARGS__ )
