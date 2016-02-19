@@ -187,10 +187,12 @@ void arduinoVNC::loop(void) {
         }
 
         /* calculate horizontal and vertical offset */
-        if(opt.client.width > opt.server.width)
+        if(opt.client.width > opt.server.width) {
             opt.h_offset = rint((opt.client.width - opt.server.width) / 2);
-        if(opt.client.height > opt.server.height)
+        }
+        if(opt.client.height > opt.server.height) {
             opt.v_offset = rint((opt.client.height - opt.server.height) / 2);
+        }
 
         /*
          mousestate.x = opt.client.width / 2;
@@ -201,10 +203,8 @@ void arduinoVNC::loop(void) {
          *    opt.v_ratio = (double) opt.client.height / (double) opt.server.height;
          */
 
-        /* Now enter the main loop, processing VNC messages.  mouse and keyboard
-         * events will automatically be processed whenever the VNC connection is
-         * idle. */
         rfb_send_update_request(0);
+        //rfb_set_continuous_updates(1);
 
         DEBUG_VNC("vnc_connect Done.\n");
 
@@ -213,6 +213,7 @@ void arduinoVNC::loop(void) {
             //DEBUG_VNC("rfb_handle_server_message faild.\n");
             return;
         }
+
         static unsigned long lastUpdate;
         if((millis() - lastUpdate) > updateDelay) {
             rfb_send_update_request(onlyFullUpdate ? 0 : 1);
@@ -753,8 +754,8 @@ bool arduinoVNC::rfb_set_format_and_encodings() {
     //enc[num_enc++] = Swap32IfLE(rfbEncodingLastRect);
     //DEBUG_VNC(" - LastRect\n");
 
-    //enc[num_enc++] = Swap32IfLE(rfbEncodingContinuousUpdates);
-    //DEBUG_VNC(" - ContinuousUpdates\n");
+    enc[num_enc++] = Swap32IfLE(rfbEncodingContinuousUpdates);
+    DEBUG_VNC(" - ContinuousUpdates\n");
 
 #if 0
     if (opt.client.compresslevel <= 9) {
@@ -801,6 +802,29 @@ bool arduinoVNC::rfb_send_update_request(int incremental) {
 
     if(!write_exact(sock, (char*) &urq, sz_rfbFramebufferUpdateRequestMsg)) {
         DEBUG_VNC("[rfb_send_update_request] write_exact failed!\n");
+        return false;
+    }
+
+    return true;
+}
+
+bool arduinoVNC::rfb_set_continuous_updates(bool enable) {
+    rfbEnableContinuousUpdatesMsg urq = { 0 };
+
+    urq.type = rfbEnableContinuousUpdates;
+    urq.enable = enable;
+    urq.x = 0;
+    urq.y = 0;
+    urq.w = opt.server.width;
+    urq.h = opt.server.height;
+
+    urq.x = Swap16IfLE(urq.x);
+    urq.y = Swap16IfLE(urq.y);
+    urq.w = Swap16IfLE(urq.w);
+    urq.h = Swap16IfLE(urq.h);
+
+    if(!write_exact(sock, (char*) &urq, sz_rfbEnableContinuousUpdatesMsg)) {
+        DEBUG_VNC("[rfb_set_continuous_updates] write_exact failed!\n");
         return false;
     }
 
@@ -1060,7 +1084,7 @@ bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rect
     display->area_update_end();
 
 #ifdef VNC_SAVE_MEMORY
-            freeSec(buf);
+    freeSec(buf);
 #endif
 
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] ------------------------ Fin ------------------------\n");
@@ -1422,8 +1446,8 @@ bool arduinoVNC::_handle_richcursor_message(rfbFramebufferUpdateRectHeader recth
 #endif
 
 bool arduinoVNC::_handle_server_continuous_updates_message(rfbFramebufferUpdateRectHeader rectheader) {
-    DEBUG_VNC_RICH_CURSOR("[rfbEncodingContinuousUpdates] x: %d y: %d w: %d h: %d\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
-    return false;
+    DEBUG_VNC("[rfbEncodingContinuousUpdates] x: %d y: %d w: %d h: %d\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+    return true;
 }
 
 //#############################################################################################
