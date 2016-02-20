@@ -153,6 +153,9 @@ void arduinoVNC::setPassword(String pass) {
 
 void arduinoVNC::loop(void) {
 
+    static uint16_t fails = 0;
+    static unsigned long lastUpdate = 0;
+
 #ifdef ESP8266
     if(WiFi.status() != WL_CONNECTED) {
         if(connected()) {
@@ -194,14 +197,13 @@ void arduinoVNC::loop(void) {
             opt.v_offset = rint((opt.client.height - opt.server.height) / 2);
         }
 
-        /*
-         mousestate.x = opt.client.width / 2;
-         mousestate.y = opt.client.height / 2;
-         */
-        /*  FIXME disabled for now
-         *    opt.h_ratio = (double) opt.client.width / (double) opt.server.width;
-         *    opt.v_ratio = (double) opt.client.height / (double) opt.server.height;
-         */
+        mousestate.x = opt.client.width / 2;
+        mousestate.y = opt.client.height / 2;
+
+        // no scale support for embedded systems!
+        opt.h_ratio = 1; //(double) opt.client.width / (double) opt.server.width;
+        opt.v_ratio = 1; //(double) opt.client.height / (double) opt.server.height;
+
 
         rfb_send_update_request(0);
         //rfb_set_continuous_updates(1);
@@ -214,10 +216,16 @@ void arduinoVNC::loop(void) {
             return;
         }
 
-        static unsigned long lastUpdate;
         if((millis() - lastUpdate) > updateDelay) {
-            rfb_send_update_request(onlyFullUpdate ? 0 : 1);
-            lastUpdate = millis();
+            if(rfb_send_update_request(onlyFullUpdate ? 0 : 1)) {
+                lastUpdate = millis();
+                fails = 0;
+            } else {
+                fails++;
+                if(fails > 20) {
+                    disconnect();
+                }
+            }
         }
     }
 #ifdef SLOW_LOOP
@@ -231,6 +239,14 @@ int arduinoVNC::forceFullUpdate(void) {
 
 void arduinoVNC::setMaxFPS(uint16_t fps) {
     updateDelay = (1000/fps);
+}
+
+
+void arduinoVNC::mouseEvent(uint16_t x, uint16_t y, uint8_t buttonMask) {
+    mousestate.x = x;
+    mousestate.y = y;
+    mousestate.buttonmask = buttonMask;
+    rfb_update_mouse();
 }
 
 
@@ -953,6 +969,7 @@ bool arduinoVNC::rfb_handle_server_message() {
     return true;
 }
 
+
 bool arduinoVNC::rfb_update_mouse() {
     rfbPointerEventMsg msg;
 
@@ -970,8 +987,8 @@ bool arduinoVNC::rfb_update_mouse() {
     msg.buttonMask = mousestate.buttonmask;
 
     /* scale to server resolution */
-    msg.x = rint(mousestate.x * opt.h_ratio);
-    msg.y = rint(mousestate.y * opt.v_ratio);
+    msg.x = mousestate.x; //rint(mousestate.x * opt.h_ratio);
+    msg.y = mousestate.y; //rint(mousestate.y * opt.v_ratio);
 
 #ifdef VNC_RICH_CURSOR
     SoftCursorMove(msg.x, msg.y);
@@ -1008,6 +1025,8 @@ bool arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg * msg) {
         return false;
     }
     size = Swap32IfLE(msg->sct.length);
+
+    DEBUG_VNC("[_handle_server_cut_text_message] size: %d\n", size);
 
     buf = (char *) malloc((sizeof(char) * size) + 1);
     if(!buf) {
