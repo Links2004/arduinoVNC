@@ -6,6 +6,7 @@ a VNC Client for Arduino based on rfbproto.
 Video:
 
 [![VNC Client on ESP8266 + ILI9341](https://img.youtube.com/vi/MA47npOtApc/0.jpg)](https://www.youtube.com/watch?v=MA47npOtApc)
+[![VNC Client on ESP8266 + ILI9341 + Touch](https://img.youtube.com/vi/8Ix-HomwQvw/0.jpg)](https://www.youtube.com/watch?v=8Ix-HomwQvw)
 
 ##### Supported features #####
  - Bell
