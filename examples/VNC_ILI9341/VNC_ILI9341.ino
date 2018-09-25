@@ -12,7 +12,11 @@
  */
 
 #include <Arduino.h>
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
+#else
+#include <WiFi.h>
+#endif
 #include <SPI.h>
 
 #include <Adafruit_GFX.h>
@@ -26,9 +30,9 @@
 #define TFT_CS      (15)
 #define TFT_RESET   (4)
 // SPI:
-// SCK to 14
-// MISO to 12
-// MOSI to 13
+// SCK to 14 (18 on esp32)
+// MISO to 12 (19 on esp32)
+// MOSI to 13 (23 on esp32)
 
 const char * vnc_ip = "192.168.1.12";
 const uint16_t vnc_port = 5900;

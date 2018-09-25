@@ -13,7 +13,11 @@
  */
 
 #include <Arduino.h>
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
+#else
+#include <WiFi.h>
+#endif
 #include <SPI.h>
 
 #include <Adafruit_GFX.h>
@@ -26,8 +30,9 @@
 
 // ILI9341
 // SPI:
-// SCK to 14
-// MOSI to 13
+// SCK to 14 (18 on esp32)
+// MOSI to 13 (23 on esp32)
+// (MISO not connected (or 19 on esp32)
 // Reset to Reset of the ESP
 #define TFT_DC      (5)
 #define TFT_CS      (15)
