@@ -55,6 +55,9 @@ class ILI9341VNC: public VNCdisplay, public Adafruit_ILI9341 {
         void area_update_data(char *data, uint32_t pixel);
         void area_update_end(void);
 
+    private:
+        uint32_t area_x, area_y, area_w, area_h;
+
 };
 
 #endif
