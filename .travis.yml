@@ -29,7 +29,7 @@ script:
   - cd $TRAVIS_BUILD_DIR
   - arduino --board $BOARD --save-prefs
   - arduino --get-pref sketchbook.path
-  - build_sketches arduino $HOME/Arduino/libraries/arduinoVNC/examples/ $CPU
+  - build_sketches arduino $HOME/Arduino/libraries/arduinoVNC/examples/$CPU $CPU
 
 notifications:
   email:
