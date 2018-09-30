@@ -58,7 +58,7 @@ function get_arduino_lib()
     git clone https://github.com/adafruit/Adafruit-GFX-Library
     git clone https://github.com/Links2004/XPT2046
     if [ "$1" = "esp32" ] ; then
-        echo TODO.
+        git clone https://github.com/adafruit/Adafruit_ILI9341
     else
         git clone https://github.com/Links2004/Adafruit_ILI9341
     fi
