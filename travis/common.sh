@@ -59,6 +59,7 @@ function get_arduino_lib()
     git clone https://github.com/Links2004/XPT2046
     if [ "$1" = "esp32" ] ; then
         git clone https://github.com/adafruit/Adafruit_ILI9341
+        rm -rf Adafruit_ILI9341/.github
     else
         git clone https://github.com/Links2004/Adafruit_ILI9341
     fi
