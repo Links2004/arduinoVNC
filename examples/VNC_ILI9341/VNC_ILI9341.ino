@@ -82,10 +82,10 @@ void setup(void) {
     tft.setRotation(1);
 
     tft.fillScreen(ILI9341_BLUE);
-
+#ifdef ESP8266
     // disable sleep mode for better data rate
     WiFi.setSleepMode(WIFI_NONE_SLEEP);
-
+#endif
     // We start by connecting to a WiFi network
 
     Serial.println();
