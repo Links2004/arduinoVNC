@@ -70,7 +70,11 @@
 #ifdef ESP32
 #define DEBUG_VNC(...) Serial.printf( __VA_ARGS__ )
 #else
+#ifdef DEBUG_ESP_PORT
+#define DEBUG_VNC(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
+#else
 #define DEBUG_VNC(...) os_printf( __VA_ARGS__ )
+#endif
 #endif
 
 #define DEBUG_VNC_RAW(...)
