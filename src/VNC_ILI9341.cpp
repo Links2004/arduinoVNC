@@ -34,7 +34,7 @@
 #include "VNC_ILI9341.h"
 
 ILI9341VNC::ILI9341VNC(int8_t _CS, int8_t _DC, int8_t _RST = -1) :
-        Adafruit_ILI9341(_CS, _DC, _RST = -1) {
+        Adafruit_ILI9341(_CS, _DC, _RST) {
 }
 
 bool ILI9341VNC::hasCopyRect(void) {
