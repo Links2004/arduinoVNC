@@ -88,6 +88,7 @@ jobs:
         if: steps.cache_all.outputs.cache-hit != 'true'
         run: |
           mkdir -p $HOME/Arduino/libraries
+          cd $HOME/Arduino/libraries
           git clone https://github.com/adafruit/Adafruit-GFX-Library
           rm -rf */.git
           rm -rf */.github
@@ -96,6 +97,7 @@ jobs:
         if: steps.cache_all.outputs.cache-hit != 'true'
         run: |
           mkdir -p $HOME/Arduino/libraries
+          cd $HOME/Arduino/libraries
           git clone https://github.com/Links2004/XPT2046
           rm -rf */.git
           rm -rf */.github
@@ -104,6 +106,7 @@ jobs:
         if: steps.cache_all.outputs.cache-hit != 'true'
         run: |
           mkdir -p $HOME/Arduino/libraries
+          cd $HOME/Arduino/libraries
           git clone https://github.com/Links2004/Adafruit_ILI9341
           rm -rf */.git
           rm -rf */.github
