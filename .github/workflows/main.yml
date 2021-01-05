@@ -28,19 +28,16 @@ jobs:
           echo -en "::set-output name=matrix::"
           echo -en "["
 
-          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples/esp8266 esp8266 1.6.13 esp8266com:esp8266:generic:xtal=80
+          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples esp8266 1.6.13 esp8266com:esp8266:generic:xtal=80
           echo -en ","
 
-          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples/esp8266 esp8266 1.6.13 esp8266com:esp8266:generic:xtal=80,dbg=Serial1
+          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples esp8266 1.6.13 esp8266com:esp8266:generic:xtal=80,dbg=Serial1
           echo -en ","
 
-          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples/esp8266 esp8266 1.8.13 esp8266com:esp8266:generic:xtal=80,eesz=1M,FlashMode=qio,FlashFreq=80
+          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples esp8266 1.8.13 esp8266com:esp8266:generic:xtal=80,eesz=1M,FlashMode=qio,FlashFreq=80
           echo -en ","
 
-          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples/avr avr 1.8.13 arduino:avr:mega:cpu=atmega2560
-          echo -en ","
-
-          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples/esp32 esp32 1.8.13 espressif:esp32:esp32:FlashFreq=80
+          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples esp32 1.8.13 espressif:esp32:esp32:FlashFreq=80
 
           echo -en "]"
     outputs:
