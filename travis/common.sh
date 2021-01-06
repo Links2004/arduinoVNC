@@ -113,3 +113,19 @@ function get_core()
     fi
 
 }
+
+function clone_library() {
+    local url=$1
+    echo clone $(basename $url)
+    mkdir -p $HOME/Arduino/libraries
+    cd $HOME/Arduino/libraries
+    git clone --depth 1 $url
+    rm -rf */.git
+    rm -rf */.github
+    rm -rf */examples
+}
+
+function hash_library_names() {
+    cd $HOME/Arduino/libraries
+    ls | sha1sum -z | cut -c1-5 
+}

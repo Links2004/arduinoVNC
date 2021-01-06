@@ -87,29 +87,26 @@ jobs:
       - name: download Adafruit-GFX-Library
         if: steps.cache_all.outputs.cache-hit != 'true'
         run: |
-          mkdir -p $HOME/Arduino/libraries
-          cd $HOME/Arduino/libraries
-          git clone --depth 1 https://github.com/adafruit/Adafruit-GFX-Library
-          rm -rf */.git
-          rm -rf */.github
+          source $GITHUB_WORKSPACE/travis/common.sh
+          clone_library https://github.com/adafruit/Adafruit-GFX-Library
+
+      - name: download Adafruit_BusIO
+        if: steps.cache_all.outputs.cache-hit != 'true'
+        run: |
+          source $GITHUB_WORKSPACE/travis/common.sh
+          clone_library https://github.com/adafruit/Adafruit_BusIO.git
 
       - name: download XPT2046
         if: steps.cache_all.outputs.cache-hit != 'true'
         run: |
-          mkdir -p $HOME/Arduino/libraries
-          cd $HOME/Arduino/libraries
-          git clone --depth 1 https://github.com/Links2004/XPT2046
-          rm -rf */.git
-          rm -rf */.github
+          source $GITHUB_WORKSPACE/travis/common.sh
+          clone_library https://github.com/Links2004/XPT2046
 
       - name: download Adafruit_ILI9341
         if: steps.cache_all.outputs.cache-hit != 'true'
         run: |
-          mkdir -p $HOME/Arduino/libraries
-          cd $HOME/Arduino/libraries
-          git clone --depth 1 https://github.com/Links2004/Adafruit_ILI9341
-          rm -rf */.git
-          rm -rf */.github
+          source $GITHUB_WORKSPACE/travis/common.sh
+          clone_library https://github.com/Links2004/Adafruit_ILI9341
 
       - name: download esp8266
         if: steps.cache_all.outputs.cache-hit != 'true'
