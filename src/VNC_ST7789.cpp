@@ -75,7 +75,7 @@ void ST7789VNC::area_update_data(char * data, uint32_t pixel) {
 void ST7789VNC::area_update_end(void) {
 }
 
-void vnc_options_override(dfb_vnc_options * opt) {
+void ST7789VNC::vnc_options_override(dfb_vnc_options * opt) {
     // TODO: may need to be swaped for ESP8266
     opt->client.bigendian = 1;
 }
