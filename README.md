@@ -24,12 +24,13 @@ Video:
  - ZLIB
     
 ##### Supported Hardware #####
- - ESP8266 [Arduino for ESP8266](https://github.com/Links2004/Arduino)
- 
+ - ESP8266 [Arduino for ESP8266](https://github.com/esp8266/Arduino)
+ - ESP32 [Arduino for ESP32](https://github.com/espressif/arduino-esp32)
  may run on Arduino DUE too.
 
 ##### Supported Displays #####
  - ILI9341 [library](https://github.com/Links2004/Adafruit_ILI9341)
+ - ST7789 [library](https://github.com/Bodmer/TFT_eSPI)
  
 more possible using ```VNCdisplay``` Interface
  

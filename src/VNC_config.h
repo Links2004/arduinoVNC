@@ -29,6 +29,7 @@
 
 /// Display
 #define VNC_ILI9341
+#define VNC_ST7789
 
 // RA8875 not fully implemented
 //#define VNC_RA8875

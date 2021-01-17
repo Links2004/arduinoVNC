@@ -2,18 +2,24 @@
   "name": "arduinoVNC",
   "keywords": "VNC, rfbproto, client, image, rfb",
   "description": "VNC Client for Arduino",
-  "repository":
-  {
+  "repository": {
     "type": "git",
     "url": "https://github.com/Links2004/arduinoVNC.git"
   },
-  "exclude": "tests",
   "frameworks": "arduino",
-  "platforms": "esp8266",
-  "authors":
-  {
-    "name": "Markus Sattler",
-    "url": "https://github.com/Links2004",
-    "maintainer": true
-  }
+  "platforms": "esp8266, espressif32",
+  "authors": [
+    {
+      "maintainer": true,
+      "name": "Markus Sattler",
+      "url": "https://github.com/Links2004"
+    }
+  ],
+  "export": {
+    "exclude": [
+      "tests"
+    ]
+  },
+  "version": "1.4",
+  "license": "GPL-2.0-or-later"
 }
