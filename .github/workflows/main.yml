@@ -108,6 +108,12 @@ jobs:
           source $GITHUB_WORKSPACE/travis/common.sh
           clone_library https://github.com/Links2004/Adafruit_ILI9341
 
+      - name: download TFT_eSPI
+        if: steps.cache_all.outputs.cache-hit != 'true'
+        run: |
+          source $GITHUB_WORKSPACE/travis/common.sh
+          clone_library https://github.com/Bodmer/TFT_eSPI
+
       - name: download esp8266
         if: steps.cache_all.outputs.cache-hit != 'true'
         run: |
@@ -171,6 +177,7 @@ jobs:
 
       - name: copy code
         run: |
+          mkdir -p $HOME/Arduino/libraries/
           cp -r $GITHUB_WORKSPACE $HOME/Arduino/libraries/arduinoVNC
       
       - name: config IDE

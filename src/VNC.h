@@ -160,6 +160,7 @@ class VNCdisplay {
         virtual void area_update_data(char *data, uint32_t pixel) = 0;
         virtual void area_update_end(void) = 0;
 
+        virtual void vnc_options_override(dfb_vnc_options * opt) {};
 };
 
 class arduinoVNC {
