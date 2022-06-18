@@ -33,13 +33,6 @@
 #define HEXDUMP_COLS 32
 #endif
 
-/// debugging
-#ifdef ESP32
-#define DEBUG_VNC(...) Serial.printf( __VA_ARGS__ )
-#else
-#define DEBUG_VNC(...) os_printf( __VA_ARGS__ )
-#endif
-
 FrameBuffer::FrameBuffer() {
     w = 0;
     h = 0;

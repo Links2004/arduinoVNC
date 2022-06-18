@@ -27,6 +27,8 @@
 #ifndef ARDUINOVNC_SRC_FB_H_
 #define ARDUINOVNC_SRC_FB_H_
 
+#include "VNC_config.h"
+
 class FrameBuffer {
     public:
         FrameBuffer();
