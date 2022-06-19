@@ -36,9 +36,11 @@
 #include "Arduino.h"
 
 #ifdef USE_ARDUINO_TCP
-#ifdef ESP8266
+#if defined(ESP32)
+#include <WiFi.h>
+#elif defined(ESP8266)
 #include <ESP8266WiFi.h>
-#elif ESP32
+#elif defined(RTL8722DM)
 #include <WiFi.h>
 #else
 #include <UIPEthernet.h>
@@ -266,9 +268,11 @@ class arduinoVNC {
 #endif
 
 #ifdef USE_ARDUINO_TCP
-#ifdef ESP8266
+#if defined(ESP32)
         WiFiClient TCPclient;
-#elif ESP32
+#elif defined(ESP8266)
+        WiFiClient TCPclient;
+#elif defined(RTL8722DM)
         WiFiClient TCPclient;
 #else
 #ifdef UIPETHERNET_H

@@ -50,13 +50,7 @@ uint32_t ILI9341VNC::getWidth(void) {
 }
 
 void ILI9341VNC::draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data) {
-#ifdef ESP32
     Adafruit_ILI9341::drawRGBBitmap(x, y, (uint16_t*)data, w, h);
-#else
-    Adafruit_ILI9341::area_update_start(x, y, w, h);
-    Adafruit_ILI9341::area_update_data(data, (w*h));
-    Adafruit_ILI9341::area_update_end();
-#endif
 }
 
 
@@ -69,28 +63,17 @@ void ILI9341VNC::copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint
 }
 
 void ILI9341VNC::area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
-#ifndef ESP32
-    Adafruit_ILI9341::area_update_start(x, y, w, h);
-#else
     area_x = x;
     area_y = y;
     area_w = w;
     area_h = h;
-#endif
 }
 
 void ILI9341VNC::area_update_data(char *data, uint32_t pixel){
-#ifndef ESP32
-    Adafruit_ILI9341::area_update_data((uint8_t *)data, pixel);
-#else
     Adafruit_ILI9341::drawRGBBitmap(area_x, area_y, (uint16_t*)data, area_w, area_h);
-#endif
 }
 
 void ILI9341VNC::area_update_end(void){
-#ifndef ESP32
-    Adafruit_ILI9341::area_update_end();
-#endif
 }
 
 #endif

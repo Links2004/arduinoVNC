@@ -29,6 +29,8 @@
 #include <stdint.h>
 #include "frameBuffer.h"
 
+#ifdef VNC_FRAMEBUFFER
+
 #ifndef HEXDUMP_COLS
 #define HEXDUMP_COLS 32
 #endif
@@ -135,3 +137,4 @@ void FrameBuffer::draw_rect(uint32_t x, uint32_t y, uint32_t rw, uint32_t rh, ui
     }
 }
 
+#endif /* VNC_FRAMEBUFFER */

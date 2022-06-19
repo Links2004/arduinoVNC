@@ -29,6 +29,7 @@
 
 #include "VNC_config.h"
 
+#ifdef VNC_FRAMEBUFFER
 class FrameBuffer {
     public:
         FrameBuffer();
@@ -48,5 +49,6 @@ class FrameBuffer {
 
 };
 
+#endif /* VNC_FRAMEBUFFER */
 
 #endif /* ARDUINOVNC_SRC_FB_H_ */
