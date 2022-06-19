@@ -51,7 +51,7 @@
 //#define VNC_SEC_TYPE_TIGHT
 
 /// Buffers
-#define VNC_FRAMEBUFFER
+//#define VNC_FRAMEBUFFER
 
 /// Testing
 //#define FPS_BENCHMARK

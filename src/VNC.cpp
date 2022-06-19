@@ -35,10 +35,6 @@
 
 #include "VNC.h"
 
-#ifdef VNC_FRAMEBUFFER
-#include "frameBuffer.h"
-#endif
-
 #ifdef VNC_TIGHT
 #include "tight.h"
 #endif
