@@ -79,6 +79,9 @@ arduinoVNC::~arduinoVNC(void) {
 #endif
 }
 
+static uint32_t maxSize = VNC_RAW_BUFFER;
+static char buf[VNC_RAW_BUFFER];
+
 void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate) {
     host = _host;
     port = _port;
@@ -1057,9 +1060,6 @@ bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rect
 #ifdef VNC_SAVE_MEMORY
     uint32_t maxSize = (ESP.getFreeHeap() / 4); // max use 20% of the free HEAP
     char *buf = NULL;
-#else
-    static uint32_t maxSize = VNC_RAW_BUFFER;
-    static char *buf = (char *) malloc(maxSize);
 #endif
 
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] x: %d y: %d w: %d h: %d bytes: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, msgSize);
@@ -1217,8 +1217,6 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
     //alloc max nedded size
 #ifdef VNC_SAVE_MEMORY
     char * buf = (char *) malloc(255 * sizeof(HextileSubrectsColoured_t));
-#else
-    static char * buf = (char *) malloc(255 * sizeof(HextileSubrectsColoured_t));
 #endif
     if(!buf) {
         DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
