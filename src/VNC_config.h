@@ -71,7 +71,7 @@
 #if defined(ESP32)
 #define DEBUG_VNC(...) Serial.printf( __VA_ARGS__ )
 #elif defined(RTL8722DM)
-#define DEBUG_VNC(...) printf( __VA_ARGS__ )
+#define DEBUG_VNC(...)
 #else
 
 #ifdef DEBUG_ESP_PORT
