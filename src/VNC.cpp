@@ -157,7 +157,6 @@ void arduinoVNC::setPassword(String pass) {
 }
 
 void arduinoVNC::loop(void) {
-
     static uint16_t fails = 0;
     static unsigned long lastUpdate = 0;
 
@@ -1230,13 +1229,13 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
 
     /* the rect is divided into tiles of width and height 16. Iterate over
      * those */
-    while((i * 16) < rect_h) {
+    while(i < rect_h) {
         /* the last tile in a column could be smaller than 16 */
         if((remaining_h -= 16) <= 0)
             tile_h = remaining_h + 16;
 
         j = 0;
-        while((j * 16) < rect_w) {
+        while(j < rect_w) {
             /* the last tile in a row could also be smaller */
             if((remaining_w -= 16) <= 0)
                 tile_w = remaining_w + 16;
@@ -1248,8 +1247,8 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                 return false;
             }
 
-            rect_xW = rect_x + (j * 16);
-            rect_yW = rect_y + (i * 16);
+            rect_xW = rect_x + j;
+            rect_yW = rect_y + i;
 
             /* first, check if the raw bit is set */
             if(subrect_encoding & rfbHextileRaw) {
@@ -1263,9 +1262,10 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                 rawUpdate.r.x = rect_xW;
                 rawUpdate.r.y = rect_yW;
 
+                DEBUG_VNC_HEXTILE("[hextile call raw] x: %d y: %d w: %d h: %d!\n", rect_xW, rect_yW, tile_w, tile_h);
                 if(!_handle_raw_encoded_message(rawUpdate)) {
 #ifdef VNC_SAVE_MEMORY
-                freeSec(buf);
+                    freeSec(buf);
 #endif
                     return false;
                 }
@@ -1276,7 +1276,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                 if(subrect_encoding & rfbHextileBackgroundSpecified) {
                     if(!read_from_rfb_server(sock, (char *) &bgColor, sizeof(bgColor))) {
 #ifdef VNC_SAVE_MEMORY
-                freeSec(buf);
+                        freeSec(buf);
 #endif
                         return false;
                     }
@@ -1285,7 +1285,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                 if(subrect_encoding & rfbHextileForegroundSpecified) {
                     if(!read_from_rfb_server(sock, (char *) &fgColor, sizeof(fgColor))) {
 #ifdef VNC_SAVE_MEMORY
-                freeSec(buf);
+                        freeSec(buf);
 #endif
                         return false;
                     }
@@ -1364,12 +1364,12 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                 display->draw_area(rect_xW, rect_yW, tile_w, tile_h, fb.getPtr());
 #endif
             }
-            j++;
+            j += 16;
             delay(0);
         }
         remaining_w = rectheader.r.w;
         tile_w = 16; /* reset for next row */
-        i++;
+        i += 16;
     }
 
 #ifdef VNC_SAVE_MEMORY
