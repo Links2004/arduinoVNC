@@ -32,17 +32,10 @@
 
 #include "VNC.h"
 
-#include <SPI.h>
-#include <TFT_eSPI.h>
-
 #include "VNC_ST7789.h"
 
 ST7789VNC::ST7789VNC() {
     TFT_eSPI();
-}
-
-bool ST7789VNC::hasCopyRect(void) {
-    return false;
 }
 
 uint32_t ST7789VNC::getHeight(void) {
@@ -53,6 +46,10 @@ uint32_t ST7789VNC::getWidth(void) {
     return 240;
 }
 
+bool ST7789VNC::hasCopyRect(void) {
+    return false;
+}
+
 void ST7789VNC::draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t * data) {
     TFT_eSPI::pushImage(x, y, w, h, (uint16_t *)data);
 }
@@ -61,22 +58,9 @@ void ST7789VNC::draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16
     TFT_eSPI::fillRect(x, y, w, h, ((((color)&0xff) << 8) | (((color) >> 8))));
 }
 
-void ST7789VNC::copy_rect(uint32_t src_x, uint32_t src_y, uint32_t dest_x, uint32_t dest_y, uint32_t w, uint32_t h) {
-}
-
-void ST7789VNC::area_update_start(uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
-    TFT_eSPI::setAddrWindow(x, y, w, h);
-}
-
-void ST7789VNC::area_update_data(char * data, uint32_t pixel) {
-    TFT_eSPI::pushPixels((uint8_t *)data, pixel);
-}
-
-void ST7789VNC::area_update_end(void) {
-}
-
 void ST7789VNC::vnc_options_override(dfb_vnc_options * opt) {
     // TODO: may need to be swaped for ESP8266
     opt->client.bigendian = 1;
 }
+
 #endif

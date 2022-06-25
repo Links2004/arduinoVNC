@@ -31,10 +31,6 @@
 #define VNC_ILI9341
 #define VNC_ST7789
 
-// RA8875 not fully implemented
-//#define VNC_RA8875
-
-
 /// TCP layer
 #define USE_ARDUINO_TCP
 #define VNC_TCP_TIMEOUT 5000
@@ -50,9 +46,6 @@
 //#define VNC_RICH_CURSOR
 //#define VNC_SEC_TYPE_TIGHT
 
-/// Buffers
-// #define VNC_FRAMEBUFFER
-
 /// Testing
 //#define FPS_BENCHMARK
 //#define FPS_BENCHMARK_FULL
@@ -61,6 +54,7 @@
 
 /// Memory Options
 #define VNC_RAW_BUFFER 15360
+#define FB_SIZE (16 * 16)
 
 /// debugging
 #if defined(ESP32)

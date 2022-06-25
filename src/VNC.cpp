@@ -79,8 +79,9 @@ arduinoVNC::~arduinoVNC(void) {
 #endif
 }
 
-static uint32_t maxSize = VNC_RAW_BUFFER;
-static char buf[VNC_RAW_BUFFER];
+uint32_t maxSize = VNC_RAW_BUFFER;
+char buf[VNC_RAW_BUFFER];
+uint16_t framebuffer[FB_SIZE];
 
 void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate) {
     host = _host;
@@ -1067,12 +1068,12 @@ bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rect
 
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] msgPixel: %d msgSize: %d\n", msgPixel, msgSize);
 
-    display->area_update_start(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
     if(!buf) {
         DEBUG_VNC("[_handle_raw_encoded_message] TO LESS MEMEORE TO HANDLE DATA!");
         return false;
     }
 
+    char *p = buf;
     while(msgPixelTotal) {
         DEBUG_VNC_RAW("[_handle_raw_encoded_message] Pixel left: %d\n", msgPixelTotal);
 
@@ -1081,17 +1082,16 @@ bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rect
             msgSize = (msgPixel * (opt.client.bpp / 8));
         }
 
-        if(!read_from_rfb_server(sock, buf, msgSize)) {
+        if(!read_from_rfb_server(sock, p, msgSize)) {
             return false;
         }
 
-        display->area_update_data(buf, msgPixel);
-
         msgPixelTotal -= msgPixel;
+        p += msgPixel;
         delay(0);
     }
 
-    display->area_update_end();
+    display->draw_area(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, (uint8_t*)buf);
 
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] ------------------------ Fin ------------------------\n");
     return true;
@@ -1262,27 +1262,28 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                     }
                 }
 
-                //DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] subrect: x: %d y: %d w: %d h: %d\n", rect_xW, rect_yW, tile_w, tile_h);
+                DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] subrect: x: %d y: %d w: %d h: %d\n", rect_xW, rect_yW, tile_w, tile_h);
 
-#ifdef VNC_FRAMEBUFFER
-                if(!fb.begin(tile_w, tile_h)) {
-                    DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
+                uint16_t tile_size = tile_w * tile_h;
+                if (tile_size > FB_SIZE) {
+                    DEBUG_VNC("[_handle_hextile_encoded_message] ttile too large: %d x % d!\n", tile_w, tile_h);
                     return false;
                 }
 
                 /* fill the background */
-                fb.draw_rect(0, 0, tile_w, tile_h, bgColor);
-#else
-                /* fill the background */
-                display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, bgColor);
-#endif
+                uint16_t *p = framebuffer;
+                uint16_t i = tile_size;
+                uint16_t j, w, delta_x;
+                while (i--) {
+                    *p++ = bgColor;
+                }
 
                 if(subrect_encoding & rfbHextileAnySubrects) {
                     uint8_t nr_subr = 0;
                     if(!read_from_rfb_server(sock, (char*) &nr_subr, 1)) {
                         return false;
                     }
-                    //DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d\n", nr_subr);
+                    DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d\n", nr_subr);
                     if(nr_subr) {
                         if(subrect_encoding & rfbHextileSubrectsColoured) {
                             if(!read_from_rfb_server(sock, buf, nr_subr * 4)) {
@@ -1291,12 +1292,19 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
 
                             HextileSubrectsColoured_t * bufPC = (HextileSubrectsColoured_t *) buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
-                                //  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] Coloured nr_subr: %d bufPC: 0x%08X\n", n, bufPC);
-#ifdef VNC_FRAMEBUFFER
-                                fb.draw_rect(bufPC->x, bufPC->y, bufPC->w + 1, bufPC->h + 1, bufPC->color);
-#else
-                                display->draw_rect(rect_xW + bufPC->x, rect_yW + bufPC->y, bufPC->w+1, bufPC->h+1, bufPC->color);
-#endif
+                                DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] Coloured nr_subr: %d bufPC: 0x%08X, %d, %d, %d, %d\n", n, bufPC, bufPC->x, bufPC->y, bufPC->w, bufPC->h);
+                                p = framebuffer + (bufPC->y * tile_w) + bufPC->x;
+                                w = bufPC->w + 1;
+                                i = w;
+                                j = bufPC->h + 1;
+                                delta_x = tile_w - w;
+                                while (j--) {
+                                    while (i--) {
+                                        *p++ = bufPC->color;
+                                    }
+                                    i = w;
+                                    p += delta_x;
+                                }
                                 bufPC++;
                             }
                         } else {
@@ -1307,21 +1315,25 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
 
                             HextileSubrects_t * bufP = (HextileSubrects_t *) buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
-
-                                //  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d bufP: 0x%08X\n", n, bufP);
-#ifdef VNC_FRAMEBUFFER
-                                fb.draw_rect(bufP->x, bufP->y, bufP->w + 1, bufP->h + 1, fgColor);
-#else
-                                display->draw_rect(rect_xW + bufP->x, rect_yW + bufP->y, bufP->w+1, bufP->h+1, fgColor);
-#endif
+                                DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d bufP: 0x%08X, %d, %d, %d, %d\n", n, bufP, bufP->x, bufP->y, bufP->w, bufP->h);
+                                p = framebuffer + (bufP->y * tile_w) + bufP->x;
+                                w = bufP->w + 1;
+                                i = w;
+                                j = bufP->h + 1;
+                                delta_x = tile_w - w;
+                                while (j--) {
+                                    while (i--) {
+                                        *p++ = fgColor;
+                                    }
+                                    i = w;
+                                    p += delta_x;
+                                }
                                 bufP++;
                             }
                         }
                     }
                 }
-#ifdef VNC_FRAMEBUFFER
-                display->draw_area(rect_xW, rect_yW, tile_w, tile_h, fb.getPtr());
-#endif
+                display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
             }
             j += 16;
             delay(0);
