@@ -53,7 +53,7 @@
 //#define SLOW_LOOP 250
 
 /// Memory Options
-#define VNC_RAW_BUFFER 15360
+#define VNC_RAW_BUFFER 512
 #define FB_SIZE (16 * 16)
 
 /// debugging

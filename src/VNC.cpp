@@ -217,7 +217,7 @@ void arduinoVNC::loop(void) {
 
     } else {
         if(!rfb_handle_server_message()) {
-            //DEBUG_VNC("rfb_handle_server_message faild.\n");
+            DEBUG_VNC("rfb_handle_server_message faild.\n");
             return;
         }
 
@@ -1024,7 +1024,6 @@ bool arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg * msg) {
     DEBUG_VNC("[_handle_server_cut_text_message] work...\n");
 
     CARD32 size;
-    char *buf;
 
     if(!read_from_rfb_server(sock, ((char*) &msg->sct) + 1, sz_rfbServerCutTextMsg - 1)) {
         return false;
@@ -1033,14 +1032,7 @@ bool arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg * msg) {
 
     DEBUG_VNC("[_handle_server_cut_text_message] size: %d\n", size);
 
-    buf = (char *) malloc((sizeof(char) * size) + 1);
-    if(!buf) {
-        DEBUG_VNC("[_handle_server_cut_text_message] no memory!\n");
-        return false;
-    }
-
     if(!read_from_rfb_server(sock, buf, size)) {
-        freeSec(buf);
         return false;
     }
 
@@ -1048,7 +1040,6 @@ bool arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg * msg) {
 
     DEBUG_VNC("[_handle_server_cut_text_message] msg: %s\n", buf);
 
-    freeSec(buf);
     return true;
 }
 
@@ -1061,17 +1052,12 @@ bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rect
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] x: %d y: %d w: %d h: %d bytes: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, msgSize);
 
     if(msgSize > maxSize) {
+        DEBUG_VNC("[_handle_raw_encoded_message] msgSize too large: %d! Please increase VNC_RAW_BUFFER in VNC_config.h\n", msgSize);
         msgPixel = (maxSize / (opt.client.bpp / 8));
         msgSize = (msgPixel * (opt.client.bpp / 8));
-        DEBUG_VNC_RAW("[_handle_raw_encoded_message] update to big for ram split %d! Free: %d\n", msgSize, ESP.getFreeHeap());
     }
 
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] msgPixel: %d msgSize: %d\n", msgPixel, msgSize);
-
-    if(!buf) {
-        DEBUG_VNC("[_handle_raw_encoded_message] TO LESS MEMEORE TO HANDLE DATA!");
-        return false;
-    }
 
     char *p = buf;
     while(msgPixelTotal) {
@@ -1199,12 +1185,6 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
 
     DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] x: %d y: %d w: %d h: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
 
-    //alloc max nedded size
-    if(!buf) {
-        DEBUG_VNC("[_handle_hextile_encoded_message] too less memory!\n");
-        return false;
-    }
-
     rect_w = remaining_w = rectheader.r.w;
     rect_h = remaining_h = rectheader.r.h;
     rect_x = rectheader.r.x;
@@ -1266,7 +1246,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
 
                 uint16_t tile_size = tile_w * tile_h;
                 if (tile_size > FB_SIZE) {
-                    DEBUG_VNC("[_handle_hextile_encoded_message] ttile too large: %d x % d!\n", tile_w, tile_h);
+                    DEBUG_VNC("[_handle_hextile_encoded_message] ttile too large: %d x % d! Please increase FB_SIZE in VNC_config.h\n", tile_w, tile_h);
                     return false;
                 }
 
@@ -1386,15 +1366,8 @@ bool arduinoVNC::_handle_richcursor_message(rfbFramebufferUpdateRectHeader recth
     }
 
     /* Read and decode mask data. */
-    uint8_t * buf = (uint8_t *) malloc(bytesMaskData);
-    if(buf == NULL) {
-        freeSec(richCursorData);
-        return false;
-    }
-
     if(!read_from_rfb_server(sock, (char *)buf, bytesMaskData)) {
         freeSec(richCursorData);
-        freeSec(buf);
         return false;
     }
 
@@ -1404,7 +1377,6 @@ bool arduinoVNC::_handle_richcursor_message(rfbFramebufferUpdateRectHeader recth
     richCursorMask = (uint8_t *) malloc(width * height);
     if(richCursorMask == NULL) {
         freeSec(richCursorData);
-        freeSec(buf);
         return false;
     }
     int32_t x, y, b;
@@ -1419,8 +1391,6 @@ bool arduinoVNC::_handle_richcursor_message(rfbFramebufferUpdateRectHeader recth
             *ptr++ = buf[y * bytesPerRow + x] >> b & 1;
         }
     }
-
-    free(buf);
 
 //todo Render Cursor
 
