@@ -229,9 +229,10 @@ void arduinoVNC::loop(void) {
             return;
         }
 
-        if((millis() - lastUpdate) > updateDelay) {
+        unsigned long currentMs = millis();
+        if((currentMs - lastUpdate) > updateDelay) {
             if(rfb_send_update_request(onlyFullUpdate ? 0 : 1)) {
-                lastUpdate = millis();
+                lastUpdate = currentMs;
                 fails = 0;
             } else {
                 fails++;
