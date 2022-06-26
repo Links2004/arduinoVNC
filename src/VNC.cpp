@@ -222,6 +222,7 @@ void arduinoVNC::loop(void) {
 
         DEBUG_VNC("vnc_connect Done.\n");
         connectionStart = millis();
+        frames = 0;
     } else {
         if(!rfb_handle_server_message()) {
             DEBUG_VNC("rfb_handle_server_message faild.\n");
