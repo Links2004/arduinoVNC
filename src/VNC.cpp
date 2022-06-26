@@ -131,7 +131,7 @@ void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate) {
 
     display->vnc_options_override(&opt);
 
-    setMaxFPS(100);
+    setMaxFPS(MAXFPS);
 }
 
 void arduinoVNC::begin(const char *_host, uint16_t _port, bool _onlyFullUpdate) {

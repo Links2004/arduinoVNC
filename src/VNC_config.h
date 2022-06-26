@@ -47,8 +47,10 @@
 //#define VNC_SEC_TYPE_TIGHT
 
 /// Testing
-//#define FPS_BENCHMARK
+#define FPS_BENCHMARK
 //#define FPS_BENCHMARK_FULL
+
+#define MAXFPS 25
 
 //#define SLOW_LOOP 250
 
