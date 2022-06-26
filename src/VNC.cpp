@@ -25,7 +25,7 @@
  *
  */
 
-#pragma GCC optimize("O3")
+#pragma GCC optimize("O2")
 
 #include <Arduino.h>
 
