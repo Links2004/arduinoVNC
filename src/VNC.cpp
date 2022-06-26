@@ -25,6 +25,8 @@
  *
  */
 
+#pragma GCC optimize("O3")
+
 #include <Arduino.h>
 
 #include <stdio.h>
