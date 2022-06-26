@@ -1178,7 +1178,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
     uint16_t rect_xW, rect_yW;
 
     uint16_t tile_w = 16, tile_h = 16;
-    int16_t remaining_w, remaining_h;
+    uint16_t remaining_w, remaining_h;
 
     CARD8 subrect_encoding;
 
@@ -1196,14 +1196,26 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
      * those */
     while(i < rect_h) {
         /* the last tile in a column could be smaller than 16 */
-        if((remaining_h -= 16) <= 0)
-            tile_h = remaining_h + 16;
+        if (remaining_h < 16)
+        {
+            tile_h = remaining_h;
+        }
+        else
+        {
+            remaining_h -= 16;
+        }
 
         j = 0;
         while(j < rect_w) {
             /* the last tile in a row could also be smaller */
-            if((remaining_w -= 16) <= 0)
-                tile_w = remaining_w + 16;
+            if (remaining_w < 16)
+            {
+                tile_w = remaining_w;
+            }
+            else
+            {
+                remaining_w -= 16;
+            }
 
             if(!read_from_rfb_server(sock, (char*) &subrect_encoding, 1)) {
                 return false;
