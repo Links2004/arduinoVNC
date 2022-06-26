@@ -1174,11 +1174,11 @@ bool arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader re
 
 #ifdef VNC_HEXTILE
 bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
-    uint32_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
-    uint32_t rect_xW, rect_yW;
+    uint16_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
+    uint16_t rect_xW, rect_yW;
 
-    uint32_t tile_w = 16, tile_h = 16;
-    int32_t remaining_w, remaining_h;
+    uint16_t tile_w = 16, tile_h = 16;
+    int16_t remaining_w, remaining_h;
 
     CARD8 subrect_encoding;
 
