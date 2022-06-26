@@ -53,6 +53,11 @@ extern "C" {
 #define min(a,b) ((a)<(b)?(a):(b))
 #endif
 
+#ifdef FPS_BENCHMARK
+    unsigned long connectionStart = 0;
+    uint32_t frames = 0;
+#endif
+
 //#############################################################################################
 
 arduinoVNC::arduinoVNC(VNCdisplay * _display) {
@@ -216,7 +221,7 @@ void arduinoVNC::loop(void) {
         //rfb_set_continuous_updates(1);
 
         DEBUG_VNC("vnc_connect Done.\n");
-
+        connectionStart = millis();
     } else {
         if(!rfb_handle_server_message()) {
             DEBUG_VNC("rfb_handle_server_message faild.\n");
@@ -938,7 +943,9 @@ bool arduinoVNC::rfb_handle_server_message() {
 #ifdef FPS_BENCHMARK
                     unsigned long encodingTime = micros() - encodingStart;
                     double fps = ((double) (1 * 1000 * 1000) / (double) encodingTime);
-                    DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d \tfps: %s \tHeap: %d\n", rectheader.encoding, rectheader.encoding, encodingTime, String(fps, 2).c_str(), ESP.getFreeHeap());
+                    frames++;
+                    double avg = ((double)frames) * 1000 / ((double)(millis() - connectionStart));
+                    DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d \tfps: %s \tAvg: %s \tHeap: %d\n", rectheader.encoding, rectheader.encoding, encodingTime, String(fps, 2).c_str(), String(avg, 2).c_str(), ESP.getFreeHeap());
 #endif
                     //wdt_enable(0);
                     if(!encodingResult) {
