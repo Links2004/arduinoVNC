@@ -299,7 +299,7 @@ bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
      return 0;
      }
      */
-    while(n > 0) {
+    while(buf_remain < n) {
         if(!connected()) {
             DEBUG_VNC("[read_from_rfb_server] not connected!\n");
             return false;
@@ -315,17 +315,27 @@ bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
             continue;
         }
 
-        len = TCPclient.read((uint8_t*) out, n);
-        if(len) {
-            t = millis();
-            out += len;
-            n -= len;
-            //DEBUG_VNC("Receive %d left %d!\n", len, n);
+        if(buf_remain > 0) {
+            if(buf_idx > 0) {
+                memcpy(buffer, buffer + buf_idx, buf_remain);
+                buf_idx = 0;
+            }
         } else {
-            //DEBUG_VNC("Receive %d left %d!\n", len, n);
+            buf_idx = 0;
         }
+
+        len = TCPclient.read(buffer + buf_remain, TCP_BUFFER_SIZE - buf_remain);
+        // DEBUG_VNC("[read_from_rfb_server] require: %d, receive: %d, buf_idx: %d, buf_remain: %d!\n", n, len, buf_idx, buf_remain);
+        buf_remain += len;
+        t = millis();
         delay(0);
     }
+
+    // DEBUG_VNC("[read_from_rfb_server] memcpy, n: %d, buf_idx: %d, buf_remain: %d!\n", n, buf_idx, buf_remain);
+    memcpy(out, buffer + buf_idx, n);
+    buf_idx += n;
+    buf_remain -= n;
+
     return true;
 }
 
