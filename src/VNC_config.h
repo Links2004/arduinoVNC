@@ -62,17 +62,17 @@
 
 /// debugging
 #if defined(ESP32)
-#define DEBUG_VNC(...) Serial.printf( __VA_ARGS__ )
+#define DEBUG_VNC(...) Serial.printf(__VA_ARGS__)
 #elif defined(RTL8722DM)
 #define DEBUG_VNC(...)
 #else
 
 #ifdef DEBUG_ESP_PORT
-#define DEBUG_VNC(...) DEBUG_ESP_PORT.printf( __VA_ARGS__ )
+#define DEBUG_VNC(...) DEBUG_ESP_PORT.printf(__VA_ARGS__)
 #elif defined(ESP8266)
-#define DEBUG_VNC(...) Serial.printf( __VA_ARGS__ )
+#define DEBUG_VNC(...) Serial.printf(__VA_ARGS__)
 #else
-#define DEBUG_VNC(...) os_printf( __VA_ARGS__ )
+#define DEBUG_VNC(...) os_printf(__VA_ARGS__)
 #endif
 
 #endif
@@ -86,15 +86,15 @@
 #endif
 
 #ifndef DEBUG_VNC_RAW
-#define DEBUG_VNC_RAW(...) DEBUG_VNC( __VA_ARGS__ )
+#define DEBUG_VNC_RAW(...) DEBUG_VNC(__VA_ARGS__)
 #endif
 
 #ifndef DEBUG_VNC_HEXTILE
-#define DEBUG_VNC_HEXTILE(...) DEBUG_VNC( __VA_ARGS__ )
+#define DEBUG_VNC_HEXTILE(...) DEBUG_VNC(__VA_ARGS__)
 #endif
 
 #ifndef DEBUG_VNC_RICH_CURSOR
-#define DEBUG_VNC_RICH_CURSOR(...) DEBUG_VNC( __VA_ARGS__ )
+#define DEBUG_VNC_RICH_CURSOR(...) DEBUG_VNC(__VA_ARGS__)
 #endif
 
 #endif /* VNC_CONFIG_H_ */
