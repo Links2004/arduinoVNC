@@ -273,9 +273,11 @@ class arduinoVNC {
 #endif
 #endif
 
+#ifdef TCP_BUFFER_SIZE
     uint8_t buffer[TCP_BUFFER_SIZE];
     size_t buf_idx = 0;
     size_t buf_remain = 0;
+#endif
 };
 
 

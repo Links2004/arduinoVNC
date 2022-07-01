@@ -299,43 +299,83 @@ bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
      return 0;
      }
      */
-    while(buf_remain < n) {
-        if(!connected()) {
-            DEBUG_VNC("[read_from_rfb_server] not connected!\n");
-            return false;
+#ifdef TCP_BUFFER_SIZE
+    if (n > TCP_BUFFER_SIZE) {
+        if (buf_remain > 0) {
+            memcpy(out, buffer + buf_idx, buf_remain);
+            n -= buf_remain;
+            out += buf_remain;
+            buf_idx = 0;
+            buf_remain = 0;
         }
+#endif
+        while(n > 0) {
+            if(!connected()) {
+                DEBUG_VNC("[read_from_rfb_server] not connected!\n");
+                return false;
+            }
 
-        if((millis() - t) > VNC_TCP_TIMEOUT) {
-            DEBUG_VNC("[read_from_rfb_server] receive TIMEOUT!\n");
-            return false;
-        }
+            if((millis() - t) > VNC_TCP_TIMEOUT) {
+                DEBUG_VNC("[read_from_rfb_server] receive TIMEOUT!\n");
+                return false;
+            }
 
-        if(!TCPclient.available()) {
+            if(!TCPclient.available()) {
+                delay(0);
+                continue;
+            }
+
+            len = TCPclient.read((uint8_t*) out, n);
+            if(len) {
+                t = millis();
+                out += len;
+                n -= len;
+                // DEBUG_VNC("Receive %d left %d!\n", len, n);
+            } else {
+                // DEBUG_VNC("Receive %d left %d!\n", len, n);
+            }
             delay(0);
-            continue;
         }
-
-        if(buf_remain > 0) {
-            if(buf_idx > 0) {
-                memcpy(buffer, buffer + buf_idx, buf_remain);
+#ifdef TCP_BUFFER_SIZE
+    } else {
+        while(buf_remain < n) {
+            if(!connected()) {
+                DEBUG_VNC("[read_from_rfb_server] not connected!\n");
+                return false;
+            }
+    
+            if((millis() - t) > VNC_TCP_TIMEOUT) {
+                DEBUG_VNC("[read_from_rfb_server] receive TIMEOUT!\n");
+                return false;
+            }
+    
+            if(!TCPclient.available()) {
+                delay(0);
+                continue;
+            }
+    
+            if(buf_remain > 0) {
+                if(buf_idx > 0) {
+                    memcpy(buffer, buffer + buf_idx, buf_remain);
+                    buf_idx = 0;
+                }
+            } else {
                 buf_idx = 0;
             }
-        } else {
-            buf_idx = 0;
+    
+            len = TCPclient.read(buffer + buf_remain, TCP_BUFFER_SIZE - buf_remain);
+            // DEBUG_VNC("[read_from_rfb_server] require: %d, receive: %d, buf_idx: %d, buf_remain: %d!\n", n, len, buf_idx, buf_remain);
+            buf_remain += len;
+            t = millis();
+            delay(0);
         }
 
-        len = TCPclient.read(buffer + buf_remain, TCP_BUFFER_SIZE - buf_remain);
-        // DEBUG_VNC("[read_from_rfb_server] require: %d, receive: %d, buf_idx: %d, buf_remain: %d!\n", n, len, buf_idx, buf_remain);
-        buf_remain += len;
-        t = millis();
-        delay(0);
+        // DEBUG_VNC("[read_from_rfb_server] memcpy, n: %d, buf_idx: %d, buf_remain: %d!\n", n, buf_idx, buf_remain);
+        memcpy(out, buffer + buf_idx, n);
+        buf_idx += n;
+        buf_remain -= n;
     }
-
-    // DEBUG_VNC("[read_from_rfb_server] memcpy, n: %d, buf_idx: %d, buf_remain: %d!\n", n, buf_idx, buf_remain);
-    memcpy(out, buffer + buf_idx, n);
-    buf_idx += n;
-    buf_remain -= n;
-
+#endif
     return true;
 }
 

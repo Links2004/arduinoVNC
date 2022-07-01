@@ -34,7 +34,8 @@
 /// TCP layer
 #define USE_ARDUINO_TCP
 #define VNC_TCP_TIMEOUT 5000
-#define TCP_BUFFER_SIZE 1600
+// comment below for disable TCP buffer
+#define TCP_BUFFER_SIZE 32
 
 /// VNC Encodes
 #define VNC_RRE
