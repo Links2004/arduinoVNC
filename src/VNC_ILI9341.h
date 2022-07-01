@@ -35,18 +35,19 @@
 #include "VNC_ILI9341.h"
 #include "VNC.h"
 
-class ILI9341VNC : public VNCdisplay, public Adafruit_ILI9341 {
-  public:
-    ILI9341VNC(int8_t _CS, int8_t _DC, int8_t _RST);
+class ILI9341VNC : public VNCdisplay, public Adafruit_ILI9341
+{
+public:
+  ILI9341VNC(int8_t _CS, int8_t _DC, int8_t _RST);
 
-    uint32_t getHeight(void);
-    uint32_t getWidth(void);
+  uint32_t getHeight(void);
+  uint32_t getWidth(void);
 
-    bool hasCopyRect(void);
+  bool hasCopyRect(void);
 
-    void draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t * data);
+  void draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data);
 
-    void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color);
+  void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color);
 };
 
 #endif /* VNC_ILI9341 */

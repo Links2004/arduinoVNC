@@ -4,7 +4,7 @@
  * @author Markus Sattler
  *
  * based on the work of modi12jin
- * 
+ *
  * Copyright (c) 2021 Markus Sattler. All rights reserved.
  * This file is part of the VNC client for Arduino.
  *
@@ -34,31 +34,38 @@
 
 #include "VNC_ST7789.h"
 
-ST7789VNC::ST7789VNC() {
+ST7789VNC::ST7789VNC()
+{
     TFT_eSPI();
 }
 
-uint32_t ST7789VNC::getHeight(void) {
+uint32_t ST7789VNC::getHeight(void)
+{
     return 240;
 }
 
-uint32_t ST7789VNC::getWidth(void) {
+uint32_t ST7789VNC::getWidth(void)
+{
     return 240;
 }
 
-bool ST7789VNC::hasCopyRect(void) {
+bool ST7789VNC::hasCopyRect(void)
+{
     return false;
 }
 
-void ST7789VNC::draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t * data) {
+void ST7789VNC::draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data)
+{
     TFT_eSPI::pushImage(x, y, w, h, (uint16_t *)data);
 }
 
-void ST7789VNC::draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color) {
+void ST7789VNC::draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color)
+{
     TFT_eSPI::fillRect(x, y, w, h, ((((color)&0xff) << 8) | (((color) >> 8))));
 }
 
-void ST7789VNC::vnc_options_override(dfb_vnc_options * opt) {
+void ST7789VNC::vnc_options_override(dfb_vnc_options *opt)
+{
     // TODO: may need to be swaped for ESP8266
     opt->client.bigendian = 1;
 }

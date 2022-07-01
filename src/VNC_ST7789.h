@@ -37,20 +37,21 @@
 #include "VNC_ST7789.h"
 #include "VNC.h"
 
-class ST7789VNC : public VNCdisplay, public TFT_eSPI {
-  public:
-    ST7789VNC();
+class ST7789VNC : public VNCdisplay, public TFT_eSPI
+{
+public:
+  ST7789VNC();
 
-    uint32_t getHeight(void);
-    uint32_t getWidth(void);
+  uint32_t getHeight(void);
+  uint32_t getWidth(void);
 
-    bool hasCopyRect(void);
+  bool hasCopyRect(void);
 
-    void draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t * data);
+  void draw_area(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t *data);
 
-    void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color);
+  void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color);
 
-    void vnc_options_override(dfb_vnc_options * opt);
+  void vnc_options_override(dfb_vnc_options *opt);
 };
 
 #endif /* VNC_ST7789 */
