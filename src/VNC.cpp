@@ -948,12 +948,12 @@ bool arduinoVNC::rfb_set_format_and_encodings()
   DEBUG_VNC(" - ContinuousUpdates\n");
 
 #if 0
-    if (opt.client.compresslevel <= 9) {
-        enc[num_enc++] = Swap32IfLE(rfbEncodingCompressLevel0 + opt.client.compresslevel);
-    }
-    if (opt.client.quality <= 9) {
-        enc[num_enc++] = Swap32IfLE(rfbEncodingQualityLevel0 + opt.client.quality);
-    }
+  if (opt.client.compresslevel <= 9) {
+    enc[num_enc++] = Swap32IfLE(rfbEncodingCompressLevel0 + opt.client.compresslevel);
+  }
+  if (opt.client.quality <= 9) {
+    enc[num_enc++] = Swap32IfLE(rfbEncodingQualityLevel0 + opt.client.quality);
+  }
 #endif
 
   em.nEncodings = Swap16IfLE(num_enc);
