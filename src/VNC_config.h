@@ -35,7 +35,11 @@
 #define USE_ARDUINO_TCP
 #define VNC_TCP_TIMEOUT 5000
 // comment below for disable TCP buffer
+#ifdef ESP32
+#define TCP_BUFFER_SIZE 1600
+#else
 #define TCP_BUFFER_SIZE 32
+#endif
 
 /// VNC Encodes
 #define VNC_RRE
