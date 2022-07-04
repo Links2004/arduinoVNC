@@ -35,7 +35,9 @@
 #define USE_ARDUINO_TCP
 #define VNC_TCP_TIMEOUT 5000
 // comment below for disable TCP buffer
-#ifdef ESP32
+#if defined(ESP32)
+#define TCP_BUFFER_SIZE 1600
+#elif defined(RTL8722DM)
 #define TCP_BUFFER_SIZE 1600
 #else
 #define TCP_BUFFER_SIZE 32
@@ -68,7 +70,7 @@
 #if defined(ESP32)
 #define DEBUG_VNC(...) Serial.printf(__VA_ARGS__)
 #elif defined(RTL8722DM)
-#define DEBUG_VNC(...)
+#define DEBUG_VNC(...) printf(__VA_ARGS__)
 #else
 
 #ifdef DEBUG_ESP_PORT

@@ -1122,7 +1122,11 @@ bool arduinoVNC::rfb_handle_server_message()
           frames++;
         }
         double avg = ((double)frames) * 1000 / ((double)(millis() - connectionStart));
+#ifdef ESP32
         DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d \tfps: %s \tAvg: %s \tHeap: %d\n", rectheader.encoding, rectheader.encoding, encodingTime, String(fps, 2).c_str(), String(avg, 2).c_str(), ESP.getFreeHeap());
+#else
+        DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d \tfps: %d \tAvg: %d\n", rectheader.encoding, rectheader.encoding, encodingTime, (int)fps, (int)avg);
+#endif
 #endif
         // wdt_enable(0);
         if (!encodingResult)
