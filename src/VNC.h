@@ -230,21 +230,21 @@ private:
   /// Encode handling
   bool _handle_server_cut_text_message(rfbServerToClientMsg *msg);
 
-  bool _handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
-  bool _handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
+  bool _handle_raw_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+  bool _handle_copyrect_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #ifdef VNC_CORRE
-  bool _handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
-  bool _handle_corre_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
+  bool _handle_rre_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+  bool _handle_corre_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #endif
 #ifdef VNC_HEXTILE
-  bool _handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
+  bool _handle_hextile_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #endif
-  bool _handle_cursor_pos_message(rfbFramebufferUpdateRectHeader rectheader);
+  bool _handle_cursor_pos_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #ifdef VNC_RICH_CURSOR
-  bool _handle_richcursor_message(rfbFramebufferUpdateRectHeader rectheader);
+  bool _handle_richcursor_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #endif
 
-  bool _handle_server_continuous_updates_message(rfbFramebufferUpdateRectHeader rectheader);
+  bool _handle_server_continuous_updates_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 
   /// Encryption
   void vncRandomBytes(unsigned char *bytes);

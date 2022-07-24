@@ -57,6 +57,7 @@ extern "C"
 #ifdef FPS_BENCHMARK
 unsigned long connectionStart = 0;
 uint32_t frames = 0;
+size_t reads = 0;
 #endif
 
 //#############################################################################################
@@ -315,6 +316,10 @@ bool arduinoVNC::connected(void)
 
 bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n)
 {
+#ifdef FPS_BENCHMARK
+  reads += n;
+#endif
+
   unsigned long t = millis();
   size_t len;
   /*
@@ -1047,97 +1052,98 @@ bool arduinoVNC::rfb_handle_server_message()
       {
         read_from_rfb_server(sock, (char *)&rectheader,
                              sz_rfbFramebufferUpdateRectHeader);
-        rectheader.r.x = Swap16IfLE(rectheader.r.x);
-        rectheader.r.y = Swap16IfLE(rectheader.r.y);
-        rectheader.r.w = Swap16IfLE(rectheader.r.w);
-        rectheader.r.h = Swap16IfLE(rectheader.r.h);
-        rectheader.encoding = Swap32IfLE(rectheader.encoding);
-        // SoftCursorLockArea(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+        uint16_t x = Swap16IfLE(rectheader.r.x);
+        uint16_t y = Swap16IfLE(rectheader.r.y);
+        uint16_t w = Swap16IfLE(rectheader.r.w);
+        uint16_t h = Swap16IfLE(rectheader.r.h);
+        uint32_t encoding = Swap32IfLE(rectheader.encoding);
+        // SoftCursorLockArea(x, y, w, h);
 
 #ifdef FPS_BENCHMARK
         unsigned long encodingStart = micros();
+        reads = 0;
 #endif
         bool encodingResult = false;
         // wdt_disable();
-        switch (rectheader.encoding)
+        switch (encoding)
         {
         case rfbEncodingRaw:
-          encodingResult = _handle_raw_encoded_message(rectheader);
+          encodingResult = _handle_raw_encoded_message(x, y, w, h);
           break;
         case rfbEncodingCopyRect:
-          encodingResult = _handle_copyrect_encoded_message(rectheader);
+          encodingResult = _handle_copyrect_encoded_message(x, y, w, h);
           break;
 #ifdef VNC_RRE
         case rfbEncodingRRE:
-          encodingResult = _handle_rre_encoded_message(rectheader);
+          encodingResult = _handle_rre_encoded_message(x, y, w, h);
           break;
 #endif
 #ifdef VNC_CORRE
         case rfbEncodingCoRRE:
-          encodingResult = _handle_corre_encoded_message(rectheader);
+          encodingResult = _handle_corre_encoded_message(x, y, w, h);
           break;
 #endif
 #ifdef VNC_HEXTILE
         case rfbEncodingHextile:
-          encodingResult = _handle_hextile_encoded_message(rectheader);
+          encodingResult = _handle_hextile_encoded_message(x, y, w, h);
           break;
 #endif
 #ifdef VNC_TIGHT
         case rfbEncodingTight:
-          encodingResult = _handle_tight_encoded_message(rectheader);
+          encodingResult = _handle_tight_encoded_message(x, y, w, h);
           break;
 #endif
 #ifdef VNC_ZLIB
         case rfbEncodingZlib:
-          encodingResult = _handle_zlib_encoded_message(rectheader);
+          encodingResult = _handle_zlib_encoded_message(x, y, w, h);
           break;
 #endif
 #ifdef VNC_RICH_CURSOR
         case rfbEncodingXCursor:
         case rfbEncodingRichCursor:
-          encodingResult = _handle_richcursor_message(rectheader);
+          encodingResult = _handle_richcursor_message(x, y, w, h);
           break;
 #endif
         case rfbEncodingPointerPos:
-          encodingResult = _handle_cursor_pos_message(rectheader);
+          encodingResult = _handle_cursor_pos_message(x, y, w, h);
           break;
         case rfbEncodingContinuousUpdates:
-          encodingResult = _handle_server_continuous_updates_message(rectheader);
+          encodingResult = _handle_server_continuous_updates_message(x, y, w, h);
           break;
         case rfbEncodingLastRect:
           DEBUG_VNC("[rfbEncodingLastRect] LAST\n");
           encodingResult = true;
           break;
         default:
-          DEBUG_VNC("Unknown encoding 0x%08X %d\n", rectheader.encoding, rectheader.encoding);
+          DEBUG_VNC("Unknown encoding 0x%08X %d\n", encoding, encoding);
           break;
         }
 
 #ifdef FPS_BENCHMARK
         unsigned long encodingTime = micros() - encodingStart;
         double fps = ((double)(1 * 1000 * 1000) / (double)encodingTime);
-        if (fps < 100)
+        double bps = (((double)reads) * 1000 * 1000) / ((double)encodingTime);
+        if (reads > 1024) // skip minor update
         {
-          // AVG only count major frame update
           frames++;
-        }
-        double avg = ((double)frames) * 1000 / ((double)(millis() - connectionStart));
+          double avg = ((double)frames) * 1000 / ((double)(millis() - connectionStart));
 #ifdef ESP32
-        DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d \tfps: %s \tAvg: %s \tHeap: %d\n", rectheader.encoding, rectheader.encoding, encodingTime, String(fps, 2).c_str(), String(avg, 2).c_str(), ESP.getFreeHeap());
+          DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d\tfps: %s\tAvg: %s\tBytes: %d\tbps: %s\tHeap: %d\n", encoding, encoding, encodingTime, String(fps, 2).c_str(), String(avg, 2).c_str(), reads, String(bps, 2).c_str(), ESP.getFreeHeap());
 #else
-        DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d \tfps: %d \tAvg: %d\n", rectheader.encoding, rectheader.encoding, encodingTime, (int)fps, (int)avg);
+          DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d \tfps: %d \tAvg: %d\tBytes: %d\tbps: %d\n", encoding, encoding, encodingTime, (int)fps, (int)avg, reads, (int)bps);
 #endif
+        }
 #endif
         // wdt_enable(0);
         if (!encodingResult)
         {
-          DEBUG_VNC("[0x%08X][%d] encoding Faild!\n", rectheader.encoding, rectheader.encoding);
+          DEBUG_VNC("[0x%08X][%d] encoding Faild!\n", encoding, encoding);
           disconnect();
           return false;
         }
         else
         {
-          // DEBUG_VNC("[0x%08X] encoding ok!\n", rectheader.encoding);
+          // DEBUG_VNC("[0x%08X] encoding ok!\n", encoding);
         }
 
         /* Now we may discard "soft cursor locks". */
@@ -1240,13 +1246,13 @@ bool arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg *msg)
   return true;
 }
 
-bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rectheader)
+bool arduinoVNC::_handle_raw_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
-  uint32_t msgPixelTotal = (rectheader.r.w * rectheader.r.h);
+  uint32_t msgPixelTotal = (w * h);
   uint32_t msgPixel = msgPixelTotal;
   uint32_t msgSize = (msgPixel * (opt.client.bpp / 8));
 
-  DEBUG_VNC_RAW("[_handle_raw_encoded_message] x: %d y: %d w: %d h: %d bytes: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, msgSize);
+  DEBUG_VNC_RAW("[_handle_raw_encoded_message] x: %d y: %d w: %d h: %d msgSize: %d!\n", x, y, w, h, msgSize);
 
   if (msgSize > maxSize)
   {
@@ -1278,13 +1284,13 @@ bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rect
     delay(0);
   }
 
-  display->draw_area(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, (uint8_t *)buf);
+  display->draw_area(x, y, w, h, (uint8_t *)buf);
 
   DEBUG_VNC_RAW("[_handle_raw_encoded_message] ------------------------ Fin ------------------------\n");
   return true;
 }
 
-bool arduinoVNC::_handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader rectheader)
+bool arduinoVNC::_handle_copyrect_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
   int src_x, src_y;
 
@@ -1301,13 +1307,13 @@ bool arduinoVNC::_handle_copyrect_encoded_message(rfbFramebufferUpdateRectHeader
   /* If RichCursor encoding is used, we should extend our
    "cursor lock area" (previously set to destination
    rectangle) to the source rectangle as well. */
-  // SoftCursorLockArea(src_x, src_y, rectheader.r.w, rectheader.r.h);
-  display->copy_rect(Swap16IfLE(src_x), Swap16IfLE(src_y), rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+  // SoftCursorLockArea(src_x, src_y, w, h);
+  display->copy_rect(Swap16IfLE(src_x), Swap16IfLE(src_y), x, y, w, h);
   return true;
 }
 
 #ifdef VNC_RRE
-bool arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rectheader)
+bool arduinoVNC::_handle_rre_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
   rfbRREHeader header;
   uint16_t colour;
@@ -1325,7 +1331,7 @@ bool arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rect
     return false;
   }
 
-  display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, colour);
+  display->draw_rect(x, y, w, h, colour);
 
   /* subrect pixel values */
   for (uint32_t i = 0; i < header.nSubrects; i++)
@@ -1337,8 +1343,8 @@ bool arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rect
     if (!read_from_rfb_server(sock, (char *)&rect, sizeof(rect)))
       return false;
     display->draw_rect(
-        Swap16IfLE(rect[0]) + rectheader.r.x,
-        Swap16IfLE(rect[1]) + rectheader.r.y, Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), colour);
+        Swap16IfLE(rect[0]) + x, Swap16IfLE(rect[1]) + y,
+        Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), colour);
   }
 
   return true;
@@ -1346,7 +1352,7 @@ bool arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rect
 #endif
 
 #ifdef VNC_CORRE
-bool arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader rectheader)
+bool arduinoVNC::_handle_corre_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
   rfbRREHeader header;
   uint16_t colour;
@@ -1367,7 +1373,7 @@ bool arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader re
   {
     return false;
   }
-  display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, colour);
+  display->draw_rect(x, y, w, h, colour);
 
   /* subrect pixel values */
   for (uint32_t i = 0; i < header.nSubrects; i++)
@@ -1380,14 +1386,16 @@ bool arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader re
     {
       return false;
     }
-    display->draw_rect(rect[0] + rectheader.r.x, rect[1] + rectheader.r.y, rect[2], rect[3], colour);
+    display->draw_rect(
+        Swap16IfLE(rect[0]) + x, Swap16IfLE(rect[1]) + y,
+        Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), colour);
   }
   return true;
 }
 #endif
 
 #ifdef VNC_HEXTILE
-bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader)
+bool arduinoVNC::_handle_hextile_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
   uint16_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
   uint16_t rect_xW, rect_yW;
@@ -1400,12 +1408,12 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
   uint16_t fgColor;
   uint16_t bgColor;
 
-  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] x: %d y: %d w: %d h: %d!\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
 
-  rect_w = remaining_w = rectheader.r.w;
-  rect_h = remaining_h = rectheader.r.h;
-  rect_x = rectheader.r.x;
-  rect_y = rectheader.r.y;
+  rect_w = remaining_w = w;
+  rect_h = remaining_h = h;
+  rect_x = x;
+  rect_y = y;
 
   /* the rect is divided into tiles of width and height 16. Iterate over
    * those */
@@ -1445,18 +1453,8 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
       /* first, check if the raw bit is set */
       if (subrect_encoding & rfbHextileRaw)
       {
-        rfbFramebufferUpdateRectHeader rawUpdate;
-
-        rawUpdate.encoding = rfbEncodingRaw;
-
-        rawUpdate.r.w = tile_w;
-        rawUpdate.r.h = tile_h;
-
-        rawUpdate.r.x = rect_xW;
-        rawUpdate.r.y = rect_yW;
-
         DEBUG_VNC_HEXTILE("[hextile call raw] x: %d y: %d w: %d h: %d!\n", rect_xW, rect_yW, tile_w, tile_h);
-        if (!_handle_raw_encoded_message(rawUpdate))
+        if (!_handle_raw_encoded_message(rect_xW, rect_yW, tile_w, tile_h))
         {
           return false;
         }
@@ -1572,7 +1570,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
       j += 16;
       delay(0);
     }
-    remaining_w = rectheader.r.w;
+    remaining_w = w;
     tile_w = 16; /* reset for next row */
     i += 16;
   }
@@ -1582,20 +1580,20 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
 }
 #endif
 
-bool arduinoVNC::_handle_cursor_pos_message(rfbFramebufferUpdateRectHeader rectheader)
+bool arduinoVNC::_handle_cursor_pos_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
-  DEBUG_VNC_RICH_CURSOR("[HandleCursorPos] x: %d y: %d w: %d h: %d\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+  DEBUG_VNC_RICH_CURSOR("[HandleCursorPos] x: %d y: %d w: %d h: %d\n", x, y, w, h);
   return true;
 }
 
 #ifdef VNC_RICH_CURSOR
-bool arduinoVNC::_handle_richcursor_message(rfbFramebufferUpdateRectHeader rectheader)
+bool arduinoVNC::_handle_richcursor_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
   // todo handle Cursor
-  DEBUG_VNC_RICH_CURSOR("[HandleRichCursor] x: %d y: %d w: %d h: %d\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+  DEBUG_VNC_RICH_CURSOR("[HandleRichCursor] x: %d y: %d w: %d h: %d\n", x, y, w, h);
 
-  CARD16 width = rectheader.r.w;
-  CARD16 height = rectheader.r.h;
+  CARD16 width = w;
+  CARD16 height = h;
 
   size_t bytesPerRow, bytesMaskData;
 
@@ -1664,9 +1662,9 @@ bool arduinoVNC::_handle_richcursor_message(rfbFramebufferUpdateRectHeader recth
 }
 #endif
 
-bool arduinoVNC::_handle_server_continuous_updates_message(rfbFramebufferUpdateRectHeader rectheader)
+bool arduinoVNC::_handle_server_continuous_updates_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
-  DEBUG_VNC("[rfbEncodingContinuousUpdates] x: %d y: %d w: %d h: %d\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+  DEBUG_VNC("[rfbEncodingContinuousUpdates] x: %d y: %d w: %d h: %d\n", x, y, w, h);
   return true;
 }
 
