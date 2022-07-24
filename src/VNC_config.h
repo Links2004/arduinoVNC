@@ -27,10 +27,6 @@
 #ifndef VNC_CONFIG_H_
 #define VNC_CONFIG_H_
 
-/// Display
-#define VNC_ILI9341
-#define VNC_ST7789
-
 /// TCP layer
 #define USE_ARDUINO_TCP
 #define VNC_TCP_TIMEOUT 5000
