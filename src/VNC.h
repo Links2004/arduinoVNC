@@ -42,6 +42,8 @@
 #include <WiFi.h>
 #elif defined(ESP8266)
 #include <ESP8266WiFi.h>
+#elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
+#include <WiFi.h>
 #elif defined(RTL8722DM)
 #include <WiFi.h>
 #else
@@ -259,6 +261,8 @@ private:
 
 #ifdef USE_ARDUINO_TCP
 #if defined(ESP32)
+  WiFiClient TCPclient;
+#elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
   WiFiClient TCPclient;
 #elif defined(ESP8266)
   WiFiClient TCPclient;

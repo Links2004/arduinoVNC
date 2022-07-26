@@ -33,6 +33,8 @@
 // comment below for disable TCP buffer
 #if defined(ESP32)
 #define TCP_BUFFER_SIZE 1600
+#elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
+#define TCP_BUFFER_SIZE 1600
 #elif defined(RTL8722DM)
 #define TCP_BUFFER_SIZE 1600
 #else
@@ -64,6 +66,8 @@
 
 /// debugging
 #if defined(ESP32)
+#define DEBUG_VNC(...) Serial.printf(__VA_ARGS__)
+#elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
 #define DEBUG_VNC(...) Serial.printf(__VA_ARGS__)
 #elif defined(RTL8722DM)
 #define DEBUG_VNC(...) printf(__VA_ARGS__)

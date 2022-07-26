@@ -119,6 +119,8 @@ void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate)
 
 #ifdef ESP32
   opt.client.bigendian = 0;
+#elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
+  opt.client.bigendian = 0;
 #else
   opt.client.bigendian = 1;
 #endif
@@ -1129,6 +1131,8 @@ bool arduinoVNC::rfb_handle_server_message()
           double avg = ((double)frames) * 1000 / ((double)(millis() - connectionStart));
 #ifdef ESP32
           DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d\tfps: %s\tAvg: %s\tBytes: %d\tbps: %s\tHeap: %d\n", encoding, encoding, encodingTime, String(fps, 2).c_str(), String(avg, 2).c_str(), reads, String(bps, 2).c_str(), ESP.getFreeHeap());
+#elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
+          DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d\tfps: %s\tAvg: %s\tBytes: %d\tbps: %s\n", encoding, encoding, encodingTime, String(fps, 2).c_str(), String(avg, 2).c_str(), reads, String(bps, 2).c_str());
 #else
           DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d \tfps: %d \tAvg: %d\tBytes: %d\tbps: %d\n", encoding, encoding, encodingTime, (int)fps, (int)avg, reads, (int)bps);
 #endif
