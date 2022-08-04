@@ -117,13 +117,7 @@ void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate)
   opt.client.bpp = 16;
   opt.client.depth = 16;
 
-#ifdef ESP32
   opt.client.bigendian = 0;
-#elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
-  opt.client.bigendian = 0;
-#else
-  opt.client.bigendian = 1;
-#endif
   opt.client.truecolour = 1;
 
   opt.client.redmax = 31;
@@ -884,7 +878,7 @@ bool arduinoVNC::rfb_set_format_and_encodings()
   rfbSetEncodingsMsg em;
   CARD32 enc[MAX_ENCODINGS];
 
-  pf.type = 0;
+  pf.type = rfbSetPixelFormat;
   pf.format.bitsPerPixel = opt.client.bpp;
   pf.format.depth = opt.client.depth;
   pf.format.bigEndian = opt.client.bigendian;
@@ -1130,7 +1124,7 @@ bool arduinoVNC::rfb_handle_server_message()
           frames++;
           double avg = ((double)frames) * 1000 / ((double)(millis() - connectionStart));
 #ifdef ESP32
-          DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d\tfps: %s\tAvg: %s\tBytes: %d\tbps: %s\tHeap: %d\n", encoding, encoding, encodingTime, String(fps, 2).c_str(), String(avg, 2).c_str(), reads, String(bps, 2).c_str(), ESP.getFreeHeap());
+          DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %lu\tfps: %s\tAvg: %s\tBytes: %d\tbps: %s\tHeap: %d\n", encoding, encoding, encodingTime, String(fps, 2).c_str(), String(avg, 2).c_str(), reads, String(bps, 2).c_str(), ESP.getFreeHeap());
 #elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
           DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d\tfps: %s\tAvg: %s\tBytes: %d\tbps: %s\n", encoding, encoding, encodingTime, String(fps, 2).c_str(), String(avg, 2).c_str(), reads, String(bps, 2).c_str());
 #else
