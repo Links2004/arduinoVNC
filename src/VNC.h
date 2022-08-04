@@ -221,6 +221,7 @@ private:
   bool _rfb_initialise_server(void);
 
   bool rfb_set_format_and_encodings();
+  bool rfb_set_desktop_size();
   bool rfb_send_update_request(int incremental);
   bool rfb_set_continuous_updates(bool enable);
   bool rfb_handle_server_message();

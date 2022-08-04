@@ -420,6 +420,8 @@ typedef struct _rfbInteractionCapsMsg
 #define rfbEndOfContinuousUpdates 150
 #define rfbFence 248
 
+#define rfbSetDesktopSize 251
+
 /* fence flags */
 #define rfbFenceFlagBlockBefore 1
 #define rfbFenceFlagBlockAfter 2
@@ -1093,6 +1095,28 @@ typedef struct _rfbSetPixelFormatMsg
 #define sz_rfbSetPixelFormatMsg (sz_rfbPixelFormat + 4)
 
 /*-----------------------------------------------------------------------------
+ * SetDesktopSize
+ */
+
+typedef struct _rfbSetDesktopSizeMsg
+{
+    CARD8 type; /* always rfbSetDesktopSize */
+    CARD8 pad1;
+    CARD16 width;
+    CARD16 height;
+    CARD8 numScreens;
+    CARD8 pad2;
+    CARD32 layoutId;
+    CARD16 layoutX;
+    CARD16 layoutY;
+    CARD16 layoutWidth;
+    CARD16 layoutHeight;
+    CARD32 layoutFlag;    
+} rfbSetDesktopSizeMsg;
+
+#define sz_rfbSetDesktopSizeMsg (24)
+
+/*-----------------------------------------------------------------------------
  * FixColourMapEntries - when the pixel format uses a "colour map", fix
  * read-only colour map entries.
  *
@@ -1348,6 +1372,7 @@ typedef union _rfbClientToServerMsg
 {
     CARD8 type;
     rfbSetPixelFormatMsg spf;
+    rfbSetDesktopSizeMsg sds;
     rfbFixColourMapEntriesMsg fcme;
     rfbSetEncodingsMsg se;
     rfbFramebufferUpdateRequestMsg fur;

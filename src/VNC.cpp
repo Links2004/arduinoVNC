@@ -216,6 +216,17 @@ void arduinoVNC::loop(void)
       return;
     }
 
+#ifdef SET_DESKTOP_SIZE
+    /* set display resolution */
+    if (!rfb_set_desktop_size())
+    {
+      DEBUG_VNC("Error set desktop size. Exiting.\n");
+      disconnect();
+      delay(500);
+      return;
+    }
+#endif
+
     /* calculate horizontal and vertical offset */
     if (opt.client.width > opt.server.width)
     {
@@ -939,6 +950,11 @@ bool arduinoVNC::rfb_set_format_and_encodings()
   DEBUG_VNC(" - XCursor\n");
 #endif
 
+#ifdef SET_DESKTOP_SIZE
+  enc[num_enc++] = Swap32IfLE(rfbEncodingNewFBSize);
+  DEBUG_VNC(" - SetDesktopSize\n");
+#endif
+
   enc[num_enc++] = Swap32IfLE(rfbEncodingPointerPos);
   DEBUG_VNC(" - CursorPos\n");
 
@@ -977,6 +993,41 @@ bool arduinoVNC::rfb_set_format_and_encodings()
 
   return true;
 }
+
+#ifdef SET_DESKTOP_SIZE
+bool arduinoVNC::rfb_set_desktop_size()
+{
+  uint16_t w = opt.client.width;
+  uint16_t h = opt.client.height;
+
+  // override server resolution
+  opt.server.width = w;
+  opt.server.height = h;
+
+  w = Swap16IfLE(w);
+  h = Swap16IfLE(h);
+  rfbSetDesktopSizeMsg ds;
+  ds.type = rfbSetDesktopSize;
+  ds.pad1 = 0;
+  ds.width = w;
+  ds.height = h;
+  ds.numScreens = 1;
+  ds.pad2 = 0;
+  ds.layoutId = 1;
+  ds.layoutX = 0;
+  ds.layoutY = 0;
+  ds.layoutWidth = w;
+  ds.layoutHeight = h;
+  ds.layoutFlag = 0;
+
+  if (!write_exact(sock, (char *)&ds, sz_rfbSetDesktopSizeMsg))
+  {
+    return false;
+  }
+
+  return true;
+}
+#endif
 
 bool arduinoVNC::rfb_send_update_request(int incremental)
 {
@@ -1110,6 +1161,12 @@ bool arduinoVNC::rfb_handle_server_message()
           DEBUG_VNC("[rfbEncodingLastRect] LAST\n");
           encodingResult = true;
           break;
+#ifdef SET_DESKTOP_SIZE
+        case rfbEncodingNewFBSize:
+          DEBUG_VNC("[rfbEncodingNewFBSize]\n");
+          encodingResult = true;
+          break;
+#endif
         default:
           DEBUG_VNC("Unknown encoding 0x%08X %d\n", encoding, encoding);
           break;

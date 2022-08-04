@@ -47,10 +47,13 @@
 #define VNC_HEXTILE
 
 // not implemented
-//#define VNC_TIGHT
-//#define VNC_ZLIB
-//#define VNC_RICH_CURSOR
-//#define VNC_SEC_TYPE_TIGHT
+// #define VNC_TIGHT
+// #define VNC_ZLIB
+// #define VNC_RICH_CURSOR
+// #define VNC_SEC_TYPE_TIGHT
+
+// Set resolution according to display resolution
+#define SET_DESKTOP_SIZE
 
 /// Testing
 #define FPS_BENCHMARK
@@ -58,7 +61,7 @@
 
 #define MAXFPS 25
 
-//#define SLOW_LOOP 250
+// #define SLOW_LOOP 250
 
 /// Memory Options
 #define VNC_RAW_BUFFER 512
