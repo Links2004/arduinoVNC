@@ -248,8 +248,10 @@ void arduinoVNC::loop(void)
     // rfb_set_continuous_updates(1);
 
     DEBUG_VNC("vnc_connect Done.\n");
+#ifdef FPS_BENCHMARK
     connectionStart = millis();
     frames = 0;
+#endif
   }
   else
   {
@@ -964,14 +966,14 @@ bool arduinoVNC::rfb_set_format_and_encodings()
   enc[num_enc++] = Swap32IfLE(rfbEncodingContinuousUpdates);
   DEBUG_VNC(" - ContinuousUpdates\n");
 
-#if 0
   if (opt.client.compresslevel <= 9) {
     enc[num_enc++] = Swap32IfLE(rfbEncodingCompressLevel0 + opt.client.compresslevel);
+    DEBUG_VNC(" - compresslevel: %d\n", opt.client.compresslevel);
   }
   if (opt.client.quality <= 9) {
     enc[num_enc++] = Swap32IfLE(rfbEncodingQualityLevel0 + opt.client.quality);
+    DEBUG_VNC(" - quality: %d\n", opt.client.quality);
   }
-#endif
 
   em.nEncodings = Swap16IfLE(num_enc);
 
