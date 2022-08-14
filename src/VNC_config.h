@@ -51,7 +51,7 @@
 /// not implemented
 // #define VNC_TIGHT
 
-#ifdef VNC_ZLIB
+#ifdef VNC_ZRLE
 #define VNC_ZRLE_DEBUG_DRY_RUN
 #endif
 
