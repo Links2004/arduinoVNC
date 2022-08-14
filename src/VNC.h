@@ -234,13 +234,27 @@ private:
   bool _handle_server_cut_text_message(rfbServerToClientMsg *msg);
 
   bool _handle_raw_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+  bool _handle_raw_encoded_message_core(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
   bool _handle_copyrect_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
-#ifdef VNC_CORRE
+#ifdef VNC_RRE
   bool _handle_rre_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+#endif
+#ifdef VNC_CORRE
   bool _handle_corre_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #endif
 #ifdef VNC_HEXTILE
   bool _handle_hextile_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+#endif
+#ifdef VNC_ZLIB
+  bool _handle_zlib_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+#endif
+#ifdef VNC_TIGHT
+#endif
+#ifdef VNC_TRLE
+  bool _handle_trle_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+#endif
+#ifdef VNC_ZRLE
+  bool _handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #endif
   bool _handle_cursor_pos_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #ifdef VNC_RICH_CURSOR
@@ -282,6 +296,20 @@ private:
   uint8_t buffer[TCP_BUFFER_SIZE];
   size_t buf_idx = 0;
   size_t buf_remain = 0;
+#endif
+
+  uint32_t maxSize = VNC_RAW_BUFFER;
+  char buf[VNC_RAW_BUFFER];
+  uint16_t framebuffer[FB_SIZE];
+
+#if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+  #define OUT_BUF_SIZE 32768L
+  uint8_t *s_outbuf;
+  bool headerDecoded = false;
+#endif
+
+#if defined(VNC_TRLE) || defined(VNC_ZRLE)
+  uint16_t palette[128];
 #endif
 };
 

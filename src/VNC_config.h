@@ -42,30 +42,44 @@
 #endif
 
 /// VNC Encodes
-#define VNC_RRE
+#define VNC_RRE // RFC6143
 #define VNC_CORRE
-#define VNC_HEXTILE
-
-// not implemented
-// #define VNC_TIGHT
+#define VNC_HEXTILE // RFC6143
 // #define VNC_ZLIB
-// #define VNC_RICH_CURSOR
-// #define VNC_SEC_TYPE_TIGHT
+// #define VNC_TRLE // RFC6143
+// #define VNC_ZRLE // RFC6143
+/// not implemented
+// #define VNC_TIGHT
 
-// Set resolution according to display resolution
-#define SET_DESKTOP_SIZE
+#ifdef VNC_ZLIB
+#define VNC_ZRLE_DEBUG_DRY_RUN
+#endif
+
+/// VNC Pseudo-encodes
+#define SET_DESKTOP_SIZE // Set resolution according to display resolution
+/// not implemented
+// #define VNC_RICH_CURSOR
+
+/// authenticate method
+/// not implemented
+// #define VNC_SEC_TYPE_TIGHT
 
 /// Testing
 #define FPS_BENCHMARK
-//#define FPS_BENCHMARK_FULL
+// #define FPS_BENCHMARK_FULL
 
 #define MAXFPS 25
 
 // #define SLOW_LOOP 250
 
 /// Memory Options
+// #define VNC_RAW_BUFFER (1920 * 2) // RAW screen width for FullHD
 #define VNC_RAW_BUFFER 512
+#if defined(VNC_ZRLE)
+#define FB_SIZE (64 * 64)
+#else
 #define FB_SIZE (16 * 16)
+#endif
 
 /// debugging
 #if defined(ESP32)
@@ -88,6 +102,9 @@
 
 #define DEBUG_VNC_RAW(...)
 #define DEBUG_VNC_HEXTILE(...)
+#define DEBUG_VNC_ZLIB(...)
+#define DEBUG_VNC_TRLE(...)
+#define DEBUG_VNC_ZRLE(...)
 #define DEBUG_VNC_RICH_CURSOR(...)
 
 #ifndef DEBUG_VNC
@@ -100,6 +117,18 @@
 
 #ifndef DEBUG_VNC_HEXTILE
 #define DEBUG_VNC_HEXTILE(...) DEBUG_VNC(__VA_ARGS__)
+#endif
+
+#ifndef DEBUG_VNC_ZLIB
+#define DEBUG_VNC_ZLIB(...) DEBUG_VNC(__VA_ARGS__)
+#endif
+
+#ifndef DEBUG_VNC_TRLE
+#define DEBUG_VNC_TRLE(...) DEBUG_VNC(__VA_ARGS__)
+#endif
+
+#ifndef DEBUG_VNC_ZRLE
+#define DEBUG_VNC_ZRLE(...) DEBUG_VNC(__VA_ARGS__)
 #endif
 
 #ifndef DEBUG_VNC_RICH_CURSOR
