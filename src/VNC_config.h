@@ -46,14 +46,15 @@
 #define VNC_CORRE
 #define VNC_HEXTILE // RFC6143
 // #define VNC_ZLIB
+// #define VNC_ZLIBHEX
 // #define VNC_TRLE // RFC6143
 // #define VNC_ZRLE // RFC6143
 /// not implemented
 // #define VNC_TIGHT
 
-#ifdef VNC_ZRLE
-#define VNC_ZRLE_DEBUG_DRY_RUN
-#endif
+// zlib related
+#define VNC_ZDECODE_DRY_RUN
+#define VNC_COMPRESS_LEVEL 9
 
 /// VNC Pseudo-encodes
 #define SET_DESKTOP_SIZE // Set resolution according to display resolution
@@ -73,8 +74,7 @@
 // #define SLOW_LOOP 250
 
 /// Memory Options
-// #define VNC_RAW_BUFFER (1920 * 2) // RAW screen width for FullHD
-#define VNC_RAW_BUFFER 512
+#define VNC_RAW_BUFFER (320 * 2) // RAW screen width
 #if defined(VNC_ZRLE)
 #define FB_SIZE (64 * 64)
 #else
@@ -100,6 +100,7 @@
 
 #endif
 
+#define DEBUG_VNC_HANDLE(...)
 #define DEBUG_VNC_RAW(...)
 #define DEBUG_VNC_HEXTILE(...)
 #define DEBUG_VNC_ZLIB(...)
@@ -109,6 +110,10 @@
 
 #ifndef DEBUG_VNC
 #define DEBUG_VNC(...)
+#endif
+
+#ifndef DEBUG_VNC_HANDLE
+#define DEBUG_VNC_HANDLE(...) DEBUG_VNC(__VA_ARGS__)
 #endif
 
 #ifndef DEBUG_VNC_RAW

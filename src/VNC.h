@@ -248,6 +248,9 @@ private:
 #ifdef VNC_ZLIB
   bool _handle_zlib_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #endif
+#ifdef VNC_ZLIBHEX
+  bool _handle_zlibhex_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+#endif
 #ifdef VNC_TIGHT
 #endif
 #ifdef VNC_TRLE
@@ -302,13 +305,13 @@ private:
   char buf[VNC_RAW_BUFFER];
   uint16_t framebuffer[FB_SIZE];
 
-#if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+#if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
   #define OUT_BUF_SIZE 32768L
   uint8_t *s_outbuf;
   bool headerDecoded = false;
 #endif
 
-#if defined(VNC_TRLE) || defined(VNC_ZRLE)
+#if defined(VNC_TRLE) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
   uint16_t palette[128];
 #endif
 };

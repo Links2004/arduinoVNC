@@ -41,7 +41,7 @@
 #include "tight.h"
 #endif
 
-#if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+#if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
 #if defined(ESP32)
 #include "esp32/rom/miniz.h"
 #else
@@ -129,7 +129,11 @@ void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate)
   opt.client.greenshift = 5;
   opt.client.blueshift = 0;
 
+#ifdef VNC_COMPRESS_LEVEL
+  opt.client.compresslevel = VNC_COMPRESS_LEVEL;
+#else
   opt.client.compresslevel = 99;
+#endif
   opt.client.quality = 99;
 
   opt.shared = 1;
@@ -144,7 +148,7 @@ void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate)
 
   setMaxFPS(MAXFPS);
 
-#if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+#if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
   s_outbuf = (uint8_t *)malloc(OUT_BUF_SIZE);
   if (!s_outbuf)
   {
@@ -261,7 +265,7 @@ void arduinoVNC::loop(void)
     connectionStart = millis();
     frames = 0;
 #endif
-#if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+#if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
     tinfl_init(&inflator);
 #endif
   }
@@ -931,6 +935,10 @@ bool arduinoVNC::rfb_set_format_and_encodings()
   enc[num_enc++] = Swap32IfLE(rfbEncodingZRLE);
   DEBUG_VNC(" - ZRLE\n");
 #endif
+#ifdef VNC_ZLIBHEX
+  enc[num_enc++] = Swap32IfLE(rfbEncodingZlibHex);
+  DEBUG_VNC(" - ZlibHex\n");
+#endif
 #ifdef VNC_ZLIB
   enc[num_enc++] = Swap32IfLE(rfbEncodingZlib);
   DEBUG_VNC(" - Zlib\n");
@@ -1164,6 +1172,11 @@ bool arduinoVNC::rfb_handle_server_message()
           encodingResult = _handle_zlib_encoded_message(x, y, w, h);
           break;
 #endif
+#ifdef VNC_ZLIBHEX
+        case rfbEncodingZlibHex:
+          encodingResult = _handle_zlibhex_encoded_message(x, y, w, h);
+          break;
+#endif
 #ifdef VNC_TIGHT
         case rfbEncodingTight:
           encodingResult = _handle_tight_encoded_message(x, y, w, h);
@@ -1319,7 +1332,7 @@ bool arduinoVNC::rfb_send_key_event(int key, int down_flag)
 
 bool arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg *msg)
 {
-  DEBUG_VNC("[_handle_server_cut_text_message] work...\n");
+  DEBUG_VNC_HANDLE("[_handle_server_cut_text_message] work...\n");
 
   CARD32 size;
 
@@ -1345,7 +1358,7 @@ bool arduinoVNC::_handle_server_cut_text_message(rfbServerToClientMsg *msg)
 
 bool arduinoVNC::_handle_raw_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
-  DEBUG_VNC_RAW("[_handle_raw_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
+  DEBUG_VNC_HANDLE("[_handle_raw_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
 
   uint16_t max_h = maxSize / 2 / w;
   if (max_h == 0)
@@ -1406,6 +1419,8 @@ bool arduinoVNC::_handle_raw_encoded_message_core(uint16_t x, uint16_t y, uint16
 
 bool arduinoVNC::_handle_copyrect_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
+  DEBUG_VNC_HANDLE("[_handle_copyrect_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
+
   int src_x, src_y;
 
   if (!read_from_rfb_server(sock, (char *)&src_x, 2))
@@ -1429,6 +1444,8 @@ bool arduinoVNC::_handle_copyrect_encoded_message(uint16_t x, uint16_t y, uint16
 #ifdef VNC_RRE
 bool arduinoVNC::_handle_rre_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
+  DEBUG_VNC_HANDLE("[_handle_rre_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
+
   rfbRREHeader header;
   uint16_t colour;
   CARD16 rect[4];
@@ -1468,6 +1485,8 @@ bool arduinoVNC::_handle_rre_encoded_message(uint16_t x, uint16_t y, uint16_t w,
 #ifdef VNC_CORRE
 bool arduinoVNC::_handle_corre_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
+  DEBUG_VNC_HANDLE("[_handle_corre_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
+
   rfbRREHeader header;
   uint16_t colour;
   CARD8 rect[4];
@@ -1511,6 +1530,8 @@ bool arduinoVNC::_handle_corre_encoded_message(uint16_t x, uint16_t y, uint16_t 
 #ifdef VNC_HEXTILE
 bool arduinoVNC::_handle_hextile_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
+  DEBUG_VNC_HANDLE("[_handle_hextile_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
+
   uint16_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
   uint16_t rect_xW, rect_yW;
 
@@ -1699,6 +1720,8 @@ bool arduinoVNC::_handle_hextile_encoded_message(uint16_t x, uint16_t y, uint16_
 #ifdef VNC_ZLIB
 bool arduinoVNC::_handle_zlib_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
+  DEBUG_VNC_HANDLE("[_handle_zlib_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
+
   rfbZlibHeader zlh;
   if (!read_from_rfb_server(sock, (char *)&zlh, sz_rfbZlibHeader))
   {
@@ -1724,9 +1747,41 @@ bool arduinoVNC::_handle_zlib_encoded_message(uint16_t x, uint16_t y, uint16_t w
 }
 #endif
 
+#ifdef VNC_ZLIBHEX
+bool arduinoVNC::_handle_zlibhex_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
+{
+  DEBUG_VNC_HANDLE("[_handle_zlibhex_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
+
+  rfbZlibHeader zlh;
+  if (!read_from_rfb_server(sock, (char *)&zlh, sz_rfbZlibHeader))
+  {
+    return false;
+  }
+  zlh.nBytes = Swap32IfLE(zlh.nBytes);
+
+  DEBUG_VNC_ZLIB("[_handle_zlibhex_encoded_message] x: %d y: %d w: %d h: %d nBytes: %du!\n", x, y, w, h, zlh.nBytes);
+
+  uint32_t remain = zlh.nBytes;
+  while (remain)
+  {
+    uint32_t len = min(remain, maxSize);
+    if (!read_from_rfb_server(sock, buf, len))
+    {
+      return false;
+    }
+    remain -= len;
+  }
+
+  DEBUG_VNC_ZLIB("[_handle_zlibhex_encoded_message] ------------------------ Fin ------------------------\n");
+  return true;
+}
+#endif
+
 #ifdef VNC_TRLE
 bool arduinoVNC::_handle_trle_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
+  DEBUG_VNC_HANDLE("[_handle_trle_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
+
   uint16_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
   uint16_t rect_xW, rect_yW;
 
@@ -1984,6 +2039,8 @@ bool arduinoVNC::_handle_trle_encoded_message(uint16_t x, uint16_t y, uint16_t w
 #ifdef VNC_ZRLE
 bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
+  DEBUG_VNC_HANDLE("[_handle_zrle_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
+
   rfbZlibHeader zlh;
   if (!read_from_rfb_server(sock, (char *)&zlh, sz_rfbZlibHeader))
   {
@@ -2094,10 +2151,10 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
       rect_xW = rect_x + j;
       rect_yW = rect_y + i;
 
-#ifdef VNC_ZRLE_DEBUG_DRY_RUN
+#ifdef VNC_ZDECODE_DRY_RUN
       next_out = s_outbuf;
       avail_out = OUT_BUF_SIZE;
-#else  // !VNC_ZRLE_DEBUG_DRY_RUN
+#else  // !VNC_ZDECODE_DRY_RUN
       subrect_encoding = *dp++;
       consumed++;
 
@@ -2286,7 +2343,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
         }
         next_out -= consumed;
       }
-#endif // !VNC_ZRLE_DEBUG_DRY_RUN
+#endif // !VNC_ZDECODE_DRY_RUN
 
       // next tile
       j += 64;
@@ -2320,13 +2377,14 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
 
 bool arduinoVNC::_handle_cursor_pos_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
-  DEBUG_VNC_RICH_CURSOR("[HandleCursorPos] x: %d y: %d w: %d h: %d\n", x, y, w, h);
+  DEBUG_VNC_HANDLE("[_handle_cursor_pos_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
   return true;
 }
 
 #ifdef VNC_RICH_CURSOR
 bool arduinoVNC::_handle_richcursor_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
+  DEBUG_VNC_HANDLE("[_handle_richcursor_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
   // todo handle Cursor
   DEBUG_VNC_RICH_CURSOR("[HandleRichCursor] x: %d y: %d w: %d h: %d\n", x, y, w, h);
 
@@ -2402,7 +2460,7 @@ bool arduinoVNC::_handle_richcursor_message(uint16_t x, uint16_t y, uint16_t w, 
 
 bool arduinoVNC::_handle_server_continuous_updates_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
-  DEBUG_VNC("[rfbEncodingContinuousUpdates] x: %d y: %d w: %d h: %d\n", x, y, w, h);
+  DEBUG_VNC_HANDLE("[_handle_server_continuous_updates_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
   return true;
 }
 
