@@ -1182,11 +1182,6 @@ bool arduinoVNC::rfb_handle_server_message()
           encodingResult = _handle_tight_encoded_message(x, y, w, h);
           break;
 #endif
-#ifdef VNC_TIGHT
-        case rfbEncodingTight:
-          encodingResult = _handle_tight_encoded_message(x, y, w, h);
-          break;
-#endif
 #ifdef VNC_TRLE
         case rfbEncodingTRLE:
           encodingResult = _handle_trle_encoded_message(x, y, w, h);
@@ -1777,6 +1772,16 @@ bool arduinoVNC::_handle_zlibhex_encoded_message(uint16_t x, uint16_t y, uint16_
 }
 #endif
 
+#ifdef VNC_TIGHT
+bool arduinoVNC::_handle_tight_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
+{
+  DEBUG_VNC_HANDLE("[_handle_tight_encoded_message] x: %d y: %d w: %d h: %d!\n", x, y, w, h);
+
+  DEBUG_VNC_ZLIB("[_handle_tight_encoded_message] ------------------------ Fin ------------------------\n");
+  return true;
+}
+#endif
+
 #ifdef VNC_TRLE
 bool arduinoVNC::_handle_trle_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
@@ -2055,7 +2060,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
 
   uint16_t tile_w = 64, tile_h = 64;
   uint16_t remaining_w, remaining_h;
-  uint16_t tile_size;
+  size_t tile_size;
   uint16_t *p;
 
   CARD8 subrect_encoding;
@@ -2169,7 +2174,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
       {
         paletteSize = subrect_encoding & 127;
 
-        DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] subrect_encoding: %d, paletteSize: %d, subrect: x: %d y: %d w: %d h: %d\n", subrect_encoding, paletteSize, rect_xW, rect_yW, tile_w, tile_h);
+        // DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] subrect_encoding: %d, paletteSize: %d, subrect: x: %d y: %d w: %d h: %d\n", subrect_encoding, paletteSize, rect_xW, rect_yW, tile_w, tile_h);
 
         for (idx = 0; idx < paletteSize; ++idx)
         {

@@ -252,6 +252,7 @@ private:
   bool _handle_zlibhex_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #endif
 #ifdef VNC_TIGHT
+  bool _handle_tight_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #endif
 #ifdef VNC_TRLE
   bool _handle_trle_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
@@ -311,8 +312,8 @@ private:
   bool headerDecoded = false;
 #endif
 
-#if defined(VNC_TRLE) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
-  uint16_t palette[128];
+#if defined(VNC_TRLE) || defined(VNC_ZRLE)
+  uint16_t palette[127];
 #endif
 };
 
