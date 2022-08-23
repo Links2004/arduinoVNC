@@ -307,9 +307,10 @@ private:
   uint16_t framebuffer[FB_SIZE];
 
 #if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
-  #define OUT_BUF_SIZE 32768L
-  uint8_t *s_outbuf;
-  bool headerDecoded = false;
+  uint8_t *zin;
+  size_t allocated_zin = 0;
+  uint8_t *zout;
+  size_t allocated_zout = 0;
 #endif
 
 #if defined(VNC_TRLE) || defined(VNC_ZRLE)

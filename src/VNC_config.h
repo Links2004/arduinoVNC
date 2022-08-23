@@ -53,7 +53,6 @@
 // #define VNC_TIGHT
 
 // zlib related
-#define VNC_ZDECODE_DRY_RUN
 #define VNC_COMPRESS_LEVEL 9
 
 /// VNC Pseudo-encodes
