@@ -311,6 +311,8 @@ private:
   size_t allocated_zin = 0;
   uint8_t *zout;
   size_t allocated_zout = 0;
+  bool header_inited = false;
+  size_t dict_ofs = 0;
 #endif
 
 #if defined(VNC_TRLE) || defined(VNC_ZRLE)
