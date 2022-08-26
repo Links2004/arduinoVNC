@@ -2085,7 +2085,9 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
   {
     if (allocated_zout < out_size)
     {
+      DEBUG_VNC_ZRLE("zout allocated_zout: %d, realloc(%d)!\n", allocated_zout, out_size);
       zout = (uint8_t *)realloc(zout, out_size);
+      allocated_zout = out_size;
     }
   }
   if (!zout)
@@ -2103,6 +2105,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
     flag |= TINFL_FLAG_PARSE_ZLIB_HEADER;
     header_inited = true;
   }
+  size_t idx;
   uint8_t *dp = (zout + dict_ofs);
   size_t out_bytes = out_size - dict_ofs;
   tinfl_status status = tinfl_decompress(&inflator, (const mz_uint8 *)zin, &in_bytes, zout, (mz_uint8 *)dp, &out_bytes, flag);
@@ -2129,7 +2132,6 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
 
   size_t consumed = 0;
   size_t runLengthCount = 0;
-  size_t idx;
   uint8_t runLenMinus1;
   uint16_t runLength;
 
