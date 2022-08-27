@@ -2071,7 +2071,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
 
   size_t in_bytes = len;
   size_t max_zout = dict_ofs + (w * h * 2) + ((w + 63) / 64) * ((h + 63) / 64);
-  size_t out_size = 32768; // Ensure the output buffer's size is a power of 2
+  size_t out_size = 262144; // Ensure the output buffer's size is a power of 2
   while (out_size < max_zout)
   {
     out_size <<= 1;
@@ -2106,6 +2106,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
   size_t out_bytes = out_size - dict_ofs;
   tinfl_status status = tinfl_decompress(&inflator, (const mz_uint8 *)zin, &in_bytes, zout, (mz_uint8 *)dp, &out_bytes, flag);
   DEBUG_VNC_ZRLE("tinfl_decompress, in_bytes: %lu, out_size: %lu, dict_ofs: %lu, out_bytes: %lu, status: %d\n", in_bytes, out_size, dict_ofs, out_bytes, status);
+  dict_ofs = (dict_ofs + out_bytes) & 0xFFFFF;
 
   uint16_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
   uint16_t rect_xW, rect_yW;
