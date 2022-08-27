@@ -2092,10 +2092,6 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
   }
   if (!zout)
   {
-    DEBUG_VNC("zout malloc failed!\n");
-  }
-  if (!zout)
-  {
     DEBUG_VNC("zout allocate failed!\n");
   }
   // tinfl_init(&inflator);
@@ -2110,7 +2106,6 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
   size_t out_bytes = out_size - dict_ofs;
   tinfl_status status = tinfl_decompress(&inflator, (const mz_uint8 *)zin, &in_bytes, zout, (mz_uint8 *)dp, &out_bytes, flag);
   DEBUG_VNC_ZRLE("tinfl_decompress, in_bytes: %lu, out_size: %lu, dict_ofs: %lu, out_bytes: %lu, status: %d\n", in_bytes, out_size, dict_ofs, out_bytes, status);
-  dict_ofs = (dict_ofs + out_bytes) & 0xFFFFF;
 
   uint16_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
   uint16_t rect_xW, rect_yW;
