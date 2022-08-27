@@ -2071,14 +2071,14 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
 
   size_t in_bytes = len;
   size_t max_zout = dict_ofs + (w * h * 2) + ((w + 63) / 64) * ((h + 63) / 64);
-  size_t out_size = 2; // Ensure the output buffer's size is a power of 2
+  size_t out_size = 32768; // Ensure the output buffer's size is a power of 2
   while (out_size < max_zout)
   {
     out_size <<= 1;
   }
   if (!zout)
   {
-    zout = (uint8_t *)malloc(out_size);
+    zout = (uint8_t *)calloc(out_size, 1);
     allocated_zout = out_size;
   }
   else
@@ -2119,6 +2119,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
   uint16_t remaining_w, remaining_h;
   size_t tile_size;
   uint16_t *p;
+  bool bad_block = false;
 
   CARD8 subrect_encoding;
 
@@ -2187,7 +2188,6 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
       {
         DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d SOLID x: %d y: %d w: %d h: %d!\n", subrect_encoding, rect_xW, rect_yW, tile_w, tile_h);
         display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, palette[0]);
-        // display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, 0xF800);
       }
       else if (subrect_encoding <= rfbTrleReusePackedPalette)
       {
@@ -2267,8 +2267,22 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
             *p++ = palette[data & 127];
           }
         }
-        display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
-        // display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, 0xF800);
+
+        if (consumed != out_bytes)
+        {
+          DEBUG_VNC("[_handle_zrle_encoded_message] consumed(%d) != out_bytes(%d)\n", consumed, out_bytes);
+          bad_block = true;
+        }
+        if (!bad_block)
+        {
+          display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
+        }
+        else
+        {
+#ifdef HIGHTLIGHT_BAD_BLOCK
+          display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, 0xF800);
+#endif
+        }
       }
       else if (subrect_encoding == rfbTrlePlainRLE)
       {
@@ -2294,16 +2308,32 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
           if (runLengthCount > tile_size)
           {
             DEBUG_VNC("[_handle_zrle_encoded_message] %d Plain RLE runLengthCount(%d) > tile_size(%d)!\n", subrect_encoding, runLengthCount, tile_size);
-            runLength -= runLengthCount - tile_size;
+            bad_block = false;
           }
-          while (runLength--)
+          else
           {
-            *p++ = color;
+            while (runLength--)
+            {
+              *p++ = color;
+            }
           }
         }
 
-        display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
-        // display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, 0xF800);
+        if (consumed != out_bytes)
+        {
+          DEBUG_VNC("[_handle_zrle_encoded_message] consumed(%d) != out_bytes(%d)\n", consumed, out_bytes);
+          bad_block = true;
+        }
+        if (!bad_block)
+        {
+          display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
+        }
+        else
+        {
+#ifdef HIGHTLIGHT_BAD_BLOCK
+          display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, 0xF800);
+#endif
+        }
       }
       else // Palette RLE
       {
@@ -2334,16 +2364,32 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
           if (runLengthCount > tile_size)
           {
             DEBUG_VNC("[_handle_zrle_encoded_message] %d Palette RLE runLengthCount(%d) > tile_size(%d)!\n", subrect_encoding, runLengthCount, tile_size);
-            runLength -= runLengthCount - tile_size;
+            bad_block = true;
           }
-          while (runLength--)
+          else
           {
-            *p++ = color;
+            while (runLength--)
+            {
+              *p++ = color;
+            }
           }
         }
 
-        display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
-        // display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, 0xF800);
+        if (consumed != out_bytes)
+        {
+          DEBUG_VNC("[_handle_zrle_encoded_message] consumed(%d) != out_bytes(%d)\n", consumed, out_bytes);
+          bad_block = true;
+        }
+        if (!bad_block)
+        {
+          display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
+        }
+        else
+        {
+#ifdef HIGHTLIGHT_BAD_BLOCK
+          display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, 0xF800);
+#endif
+        }
       }
     }
 
@@ -2368,11 +2414,6 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
 
     delay(0);
     // DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] loop i: %d, j: %d\n", i, j);
-  }
-
-  if (consumed != out_bytes)
-  {
-    DEBUG_VNC("[_handle_zrle_encoded_message] consumed(%d) != out_bytes(%d)\n", consumed, out_bytes);
   }
 
   DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] ------------------------ Fin ------------------------\n");

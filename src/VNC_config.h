@@ -54,6 +54,7 @@
 
 // zlib related
 #define VNC_COMPRESS_LEVEL 9
+// #define HIGHTLIGHT_BAD_BLOCK
 
 /// VNC Pseudo-encodes
 #define SET_DESKTOP_SIZE // Set resolution according to display resolution
