@@ -2106,7 +2106,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
   size_t out_bytes = out_size - dict_ofs;
   tinfl_status status = tinfl_decompress(&inflator, (const mz_uint8 *)zin, &in_bytes, zout, (mz_uint8 *)dp, &out_bytes, flag);
   DEBUG_VNC_ZRLE("tinfl_decompress, in_bytes: %lu, out_size: %lu, dict_ofs: %lu, out_bytes: %lu, status: %d\n", in_bytes, out_size, dict_ofs, out_bytes, status);
-  dict_ofs = (dict_ofs + out_bytes) & 0xFFFFF;
+  dict_ofs = (dict_ofs + out_bytes) & 0x7FFFF;
 
   uint16_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
   uint16_t rect_xW, rect_yW;
@@ -2266,7 +2266,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
 
         if (consumed != out_bytes)
         {
-          DEBUG_VNC("[_handle_zrle_encoded_message] consumed(%d) != out_bytes(%d)\n", consumed, out_bytes);
+          DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] consumed(%d) != out_bytes(%d)\n", consumed, out_bytes);
           bad_block = true;
         }
         if (!bad_block)
@@ -2303,7 +2303,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
           runLengthCount += runLength;
           if (runLengthCount > tile_size)
           {
-            DEBUG_VNC("[_handle_zrle_encoded_message] %d Plain RLE runLengthCount(%d) > tile_size(%d)!\n", subrect_encoding, runLengthCount, tile_size);
+            DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d Plain RLE runLengthCount(%d) > tile_size(%d)!\n", subrect_encoding, runLengthCount, tile_size);
             bad_block = false;
           }
           else
@@ -2317,7 +2317,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
 
         if (consumed != out_bytes)
         {
-          DEBUG_VNC("[_handle_zrle_encoded_message] consumed(%d) != out_bytes(%d)\n", consumed, out_bytes);
+          DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] consumed(%d) != out_bytes(%d)\n", consumed, out_bytes);
           bad_block = true;
         }
         if (!bad_block)
@@ -2359,7 +2359,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
           // DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] Palette RLE idx: %d, runLength: %d, runLengthCount: %d.\n", idx, runLength, runLengthCount);
           if (runLengthCount > tile_size)
           {
-            DEBUG_VNC("[_handle_zrle_encoded_message] %d Palette RLE runLengthCount(%d) > tile_size(%d)!\n", subrect_encoding, runLengthCount, tile_size);
+            DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d Palette RLE runLengthCount(%d) > tile_size(%d)!\n", subrect_encoding, runLengthCount, tile_size);
             bad_block = true;
           }
           else
@@ -2373,7 +2373,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
 
         if (consumed != out_bytes)
         {
-          DEBUG_VNC("[_handle_zrle_encoded_message] consumed(%d) != out_bytes(%d)\n", consumed, out_bytes);
+          DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] consumed(%d) != out_bytes(%d)\n", consumed, out_bytes);
           bad_block = true;
         }
         if (!bad_block)
