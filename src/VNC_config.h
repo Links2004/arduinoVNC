@@ -48,13 +48,12 @@
 // #define VNC_ZLIB
 // #define VNC_ZLIBHEX
 // #define VNC_TRLE // RFC6143
-// #define VNC_ZRLE // RFC6143
+#define VNC_ZRLE // RFC6143
 /// not implemented
 // #define VNC_TIGHT
 
 // zlib related
 #define VNC_COMPRESS_LEVEL 9
-// #define HIGHTLIGHT_BAD_BLOCK
 
 /// VNC Pseudo-encodes
 #define SET_DESKTOP_SIZE // Set resolution according to display resolution

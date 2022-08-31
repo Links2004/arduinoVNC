@@ -37,6 +37,14 @@
 
 #include "Arduino.h"
 
+#if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
+#if defined(ESP32)
+#include "esp32/rom/miniz.h"
+#else
+#include "miniz.h"
+#endif
+#endif // #if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+
 #ifdef USE_ARDUINO_TCP
 #if defined(ESP32)
 #include <WiFi.h>
@@ -205,6 +213,11 @@ private:
   /// TCP handling
   void disconnect(void);
   bool read_from_rfb_server(int sock, char *out, size_t n);
+
+#if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
+  bool read_from_z(uint8_t *out, size_t n);
+#endif // #if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
+
   bool write_exact(int sock, char *buf, size_t n);
   bool set_non_blocking(int sock);
 
@@ -307,12 +320,17 @@ private:
   uint16_t framebuffer[FB_SIZE];
 
 #if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
-  uint8_t *zin;
-  size_t allocated_zin = 0;
-  uint8_t *zout;
-  size_t allocated_zout = 0;
+  tinfl_decompressor inflator;
   bool header_inited = false;
-  size_t dict_ofs = 0;
+
+  uint8_t *zin_buffer;
+  size_t allocated_zin = 0, zin_buf_size = 0, zin_buf_ofs = 0;
+
+  uint8_t zdict[TDEFL_LZ_DICT_SIZE];
+  size_t zdict_ofs = 0;
+
+  uint8_t zout_buffer[TDEFL_LZ_DICT_SIZE];
+  size_t zout_buf_idx = 0, zout_buf_remain = 0;
 #endif
 
 #if defined(VNC_TRLE) || defined(VNC_ZRLE)
