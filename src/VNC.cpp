@@ -99,9 +99,9 @@ void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate)
 #else
   onlyFullUpdate = false;
 #endif
-#else
+#else // !FPS_BENCHMARK
   onlyFullUpdate = _onlyFullUpdate;
-#endif
+#endif // !FPS_BENCHMARK
 
   opt.client.width = display->getWidth();
   opt.client.height = display->getHeight();
@@ -249,9 +249,11 @@ void arduinoVNC::loop(void)
     frames = 0;
 #endif
 #if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
-    memset(zdict, 0, TINFL_LZ_DICT_SIZE);
     tinfl_init(&inflator);
-#endif
+    // reset dict
+    memset(zdict, 0, TINFL_LZ_DICT_SIZE);
+    zdict_ofs = 0;
+#endif // #if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
   }
   else
   {
@@ -355,7 +357,7 @@ bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n)
       buf_idx = 0;
       buf_remain = 0;
     }
-#endif
+#endif // #ifdef TCP_BUFFER_SIZE
     while (n > 0)
     {
       if (!connected())
@@ -439,7 +441,7 @@ bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n)
     buf_idx += n;
     buf_remain -= n;
   }
-#endif
+#endif // #ifdef TCP_BUFFER_SIZE
   return true;
 }
 
@@ -513,9 +515,9 @@ void arduinoVNC::disconnect(void)
   TCPclient.stop();
 }
 
-#else
+#else // !USE_ARDUINO_TCP
 #error implement TCP handling
-#endif
+#endif // !USE_ARDUINO_TCP
 
 //#############################################################################################
 //                                       Connect to Server
@@ -535,7 +537,7 @@ bool arduinoVNC::rfb_connect_to_server(const char *host, int port)
   DEBUG_VNC("[rfb_connect_to_server] Connected.\n");
   set_non_blocking(sock);
   return true;
-#else
+#else // !USE_ARDUINO_TCP
   struct hostent *he = NULL;
   int one = 1;
   struct sockaddr_in s;
@@ -580,7 +582,7 @@ bool arduinoVNC::rfb_connect_to_server(const char *host, int port)
     return -1;
 
   return (sock);
-#endif
+#endif // !USE_ARDUINO_TCP
 }
 
 bool arduinoVNC::rfb_initialise_connection()
@@ -773,7 +775,7 @@ bool arduinoVNC::_rfb_authenticate()
         break;
       }
     }
-#endif
+#endif // #ifdef VNC_SEC_TYPE_TIGHT
     if (secType == rfbSecTypeInvalid)
     {
       // use first supported security type
@@ -1505,7 +1507,7 @@ bool arduinoVNC::_handle_rre_encoded_message(uint16_t x, uint16_t y, uint16_t w,
 
   return true;
 }
-#endif
+#endif // #ifdef VNC_RRE
 
 #ifdef VNC_CORRE
 bool arduinoVNC::_handle_corre_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
@@ -1550,7 +1552,7 @@ bool arduinoVNC::_handle_corre_encoded_message(uint16_t x, uint16_t y, uint16_t 
   }
   return true;
 }
-#endif
+#endif // #ifdef VNC_CORRE
 
 #ifdef VNC_HEXTILE
 bool arduinoVNC::_handle_hextile_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
@@ -1740,7 +1742,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(uint16_t x, uint16_t y, uint16_
   DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] ------------------------ Fin ------------------------\n");
   return true;
 }
-#endif
+#endif // #ifdef VNC_HEXTILE
 
 #ifdef VNC_ZLIB
 bool arduinoVNC::_handle_zlib_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
@@ -1770,7 +1772,7 @@ bool arduinoVNC::_handle_zlib_encoded_message(uint16_t x, uint16_t y, uint16_t w
   DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] ------------------------ Fin ------------------------\n");
   return true;
 }
-#endif
+#endif // #ifdef VNC_ZLIB
 
 #ifdef VNC_ZLIBHEX
 bool arduinoVNC::_handle_zlibhex_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
@@ -1800,7 +1802,7 @@ bool arduinoVNC::_handle_zlibhex_encoded_message(uint16_t x, uint16_t y, uint16_
   DEBUG_VNC_ZLIB("[_handle_zlibhex_encoded_message] ------------------------ Fin ------------------------\n");
   return true;
 }
-#endif
+#endif // #ifdef VNC_ZLIBHEX
 
 #ifdef VNC_TIGHT
 bool arduinoVNC::_handle_tight_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
@@ -1810,7 +1812,7 @@ bool arduinoVNC::_handle_tight_encoded_message(uint16_t x, uint16_t y, uint16_t 
   DEBUG_VNC_ZLIB("[_handle_tight_encoded_message] ------------------------ Fin ------------------------\n");
   return true;
 }
-#endif
+#endif // #ifdef VNC_TIGHT
 
 #ifdef VNC_TRLE
 bool arduinoVNC::_handle_trle_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
@@ -2069,7 +2071,7 @@ bool arduinoVNC::_handle_trle_encoded_message(uint16_t x, uint16_t y, uint16_t w
   DEBUG_VNC_TRLE("[_handle_trle_encoded_message] ------------------------ Fin ------------------------\n");
   return true;
 }
-#endif
+#endif // #ifdef VNC_TRLE
 
 #ifdef VNC_ZRLE
 bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
@@ -2359,7 +2361,7 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
   DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] ------------------------ Fin ------------------------\n");
   return true;
 }
-#endif
+#endif // #ifdef VNC_ZRLE
 
 bool arduinoVNC::_handle_cursor_pos_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
@@ -2442,7 +2444,7 @@ bool arduinoVNC::_handle_richcursor_message(uint16_t x, uint16_t y, uint16_t w, 
 
   return true;
 }
-#endif
+#endif // #ifdef VNC_RICH_CURSOR
 
 bool arduinoVNC::_handle_server_continuous_updates_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {

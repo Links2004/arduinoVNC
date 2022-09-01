@@ -65,7 +65,7 @@
 // #define VNC_SEC_TYPE_TIGHT
 
 /// Testing
-#define FPS_BENCHMARK
+// #define FPS_BENCHMARK
 // #define FPS_BENCHMARK_FULL
 
 #define MAXFPS 25
@@ -87,7 +87,7 @@
 #define DEBUG_VNC(...) Serial.printf(__VA_ARGS__)
 #elif defined(RTL8722DM)
 #define DEBUG_VNC(...) printf(__VA_ARGS__)
-#else
+#else // default platform
 
 #ifdef DEBUG_ESP_PORT
 #define DEBUG_VNC(...) DEBUG_ESP_PORT.printf(__VA_ARGS__)
@@ -97,7 +97,7 @@
 #define DEBUG_VNC(...) os_printf(__VA_ARGS__)
 #endif
 
-#endif
+#endif // default platform
 
 #define DEBUG_VNC_HANDLE(...)
 #define DEBUG_VNC_RAW(...)

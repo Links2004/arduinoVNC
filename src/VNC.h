@@ -46,6 +46,7 @@
 #endif // #if defined(VNC_ZLIB) || defined(VNC_ZRLE)
 
 #ifdef USE_ARDUINO_TCP
+
 #if defined(ESP32)
 #include <WiFi.h>
 #elif defined(ESP8266)
@@ -54,14 +55,17 @@
 #include <WiFi.h>
 #elif defined(RTL8722DM)
 #include <WiFi.h>
-#else
+#else // default platform
+
 #include <UIPEthernet.h>
 #ifndef UIPETHERNET_H
 #include <Ethernet.h>
 #include <SPI.h>
-#endif
-#endif
-#endif
+#endif // #ifndef UIPETHERNET_H
+
+#endif // default platform
+
+#endif // #ifdef USE_ARDUINO_TCP
 
 #define MAXPWLEN 8
 #define CHALLENGESIZE 16
@@ -292,6 +296,7 @@ private:
 #endif
 
 #ifdef USE_ARDUINO_TCP
+
 #if defined(ESP32)
   WiFiClient TCPclient;
 #elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
@@ -300,14 +305,17 @@ private:
   WiFiClient TCPclient;
 #elif defined(RTL8722DM)
   WiFiClient TCPclient;
-#else
+#else // default platform
+
 #ifdef UIPETHERNET_H
   UIPClient TCPclient;
 #else
   EthernetClient TCPclient;
 #endif
-#endif
-#endif
+
+#endif // default platform
+
+#endif // #ifdef USE_ARDUINO_TCP
 
 #ifdef TCP_BUFFER_SIZE
   uint8_t buffer[TCP_BUFFER_SIZE];
@@ -331,7 +339,7 @@ private:
 
   uint8_t zout_buffer[TDEFL_LZ_DICT_SIZE];
   size_t zout_buf_idx = 0, zout_buf_remain = 0;
-#endif
+#endif // #if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
 
 #if defined(VNC_TRLE) || defined(VNC_ZRLE)
   uint16_t palette[127];
