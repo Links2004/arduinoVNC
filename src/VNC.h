@@ -195,7 +195,6 @@ public:
 
   int forceFullUpdate(void);
 
-  void setMaxFPS(uint16_t fps);
   void mouseEvent(uint16_t x, uint16_t y, uint8_t buttonMask);
 
 private:
@@ -203,7 +202,6 @@ private:
   int port;
   String host;
   String password;
-  uint16_t updateDelay;
 
   VNCdisplay *display;
 
@@ -296,13 +294,13 @@ private:
 #endif // #ifdef USE_ARDUINO_TCP
 
 #ifdef TCP_BUFFER_SIZE
-  uint8_t buffer[TCP_BUFFER_SIZE];
+  uint8_t tcp_buffer[TCP_BUFFER_SIZE];
   size_t buf_idx = 0;
   size_t buf_remain = 0;
 #endif
 
   uint32_t maxSize = VNC_RAW_BUFFER;
-  char buf[VNC_RAW_BUFFER];
+  char raw_buffer[VNC_RAW_BUFFER];
   uint16_t framebuffer[FB_SIZE];
 
 #ifdef VNC_ZRLE

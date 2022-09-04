@@ -32,7 +32,11 @@
 #define VNC_TCP_TIMEOUT 5000
 // comment below for disable TCP buffer
 #if defined(ESP32)
+#if defined(BOARD_HAS_PSRAM)
 #define TCP_BUFFER_SIZE 1600
+#else
+#define TCP_BUFFER_SIZE 600
+#endif
 #elif defined(ARDUINO_RASPBERRY_PI_PICO_W)
 #define TCP_BUFFER_SIZE 1600
 #elif defined(RTL8722DM)
@@ -48,16 +52,16 @@
 #define VNC_ZRLE // RFC6143
 
 // zlib related
-#define VNC_COMPRESS_LEVEL 9
+#define VNC_COMPRESS_LEVEL 4
 
 /// VNC Pseudo-encodes
 #define SET_DESKTOP_SIZE // Set resolution according to display resolution
 
 /// Testing
-#define FPS_BENCHMARK
+// #define FPS_BENCHMARK
 // #define FPS_BENCHMARK_FULL
 
-#define MAXFPS 25
+// #define MAXFPS 25
 
 // #define SLOW_LOOP 250
 
