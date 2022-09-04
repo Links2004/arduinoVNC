@@ -45,27 +45,16 @@
 #define VNC_RRE // RFC6143
 #define VNC_CORRE
 #define VNC_HEXTILE // RFC6143
-// #define VNC_ZLIB
-// #define VNC_ZLIBHEX
-// #define VNC_TRLE // RFC6143
 #define VNC_ZRLE // RFC6143
-/// not implemented
-// #define VNC_TIGHT
 
 // zlib related
 #define VNC_COMPRESS_LEVEL 9
 
 /// VNC Pseudo-encodes
 #define SET_DESKTOP_SIZE // Set resolution according to display resolution
-/// not implemented
-// #define VNC_RICH_CURSOR
-
-/// authenticate method
-/// not implemented
-// #define VNC_SEC_TYPE_TIGHT
 
 /// Testing
-// #define FPS_BENCHMARK
+#define FPS_BENCHMARK
 // #define FPS_BENCHMARK_FULL
 
 #define MAXFPS 25
@@ -74,11 +63,11 @@
 
 /// Memory Options
 #define VNC_RAW_BUFFER (320 * 2) // RAW screen width
-#if defined(VNC_ZRLE)
+#ifdef VNC_ZRLE
 #define FB_SIZE (64 * 64)
-#else
+#else // !VNC_ZRLE
 #define FB_SIZE (16 * 16)
-#endif
+#endif // !VNC_ZRLE
 
 /// debugging
 #if defined(ESP32)

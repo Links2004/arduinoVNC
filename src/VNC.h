@@ -37,13 +37,13 @@
 
 #include "Arduino.h"
 
-#if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
+#ifdef VNC_ZRLE
 #if defined(ESP32)
 #include "esp32/rom/miniz.h"
 #else
 #include "miniz.h"
 #endif
-#endif // #if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+#endif // #ifdef VNC_ZRLE
 
 #ifdef USE_ARDUINO_TCP
 
@@ -218,9 +218,9 @@ private:
   void disconnect(void);
   bool read_from_rfb_server(int sock, char *out, size_t n);
 
-#if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
+#ifdef VNC_ZRLE
   bool read_from_z(uint8_t *out, size_t n);
-#endif // #if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
+#endif // #ifdef VNC_ZRLE
 
   bool write_exact(int sock, char *buf, size_t n);
   bool set_non_blocking(int sock);
@@ -262,38 +262,16 @@ private:
 #ifdef VNC_HEXTILE
   bool _handle_hextile_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #endif
-#ifdef VNC_ZLIB
-  bool _handle_zlib_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
-#endif
-#ifdef VNC_ZLIBHEX
-  bool _handle_zlibhex_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
-#endif
-#ifdef VNC_TIGHT
-  bool _handle_tight_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
-#endif
-#ifdef VNC_TRLE
-  bool _handle_trle_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
-#endif
 #ifdef VNC_ZRLE
   bool _handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 #endif
   bool _handle_cursor_pos_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
-#ifdef VNC_RICH_CURSOR
-  bool _handle_richcursor_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
-#endif
 
   bool _handle_server_continuous_updates_message(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 
   /// Encryption
   void vncRandomBytes(unsigned char *bytes);
   void vncEncryptBytes(unsigned char *bytes, char *passwd);
-
-#ifdef VNC_RICH_CURSOR
-  /// Cursor
-  uint8_t *richCursorData;
-  uint8_t *richCursorMask;
-  void SoftCursorMove(int x, int y);
-#endif
 
 #ifdef USE_ARDUINO_TCP
 
@@ -327,7 +305,7 @@ private:
   char buf[VNC_RAW_BUFFER];
   uint16_t framebuffer[FB_SIZE];
 
-#if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
+#ifdef VNC_ZRLE
   tinfl_decompressor inflator;
   bool header_inited = false;
 
@@ -339,9 +317,7 @@ private:
 
   uint8_t zout_buffer[TDEFL_LZ_DICT_SIZE];
   size_t zout_buf_idx = 0, zout_buf_remain = 0;
-#endif // #if defined(VNC_ZLIB) || defined(VNC_ZLIBHEX) || defined(VNC_ZRLE)
 
-#if defined(VNC_TRLE) || defined(VNC_ZRLE)
   uint16_t palette[127];
 #endif
 };
