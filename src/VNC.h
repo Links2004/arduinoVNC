@@ -313,7 +313,7 @@ private:
   uint8_t zdict[TDEFL_LZ_DICT_SIZE];
   size_t zdict_ofs = 0;
 
-  uint8_t zout_buffer[TDEFL_LZ_DICT_SIZE];
+  uint8_t *zout_buffer;
   size_t zout_buf_idx = 0, zout_buf_remain = 0;
 
   uint16_t palette[127];

@@ -229,6 +229,15 @@ void arduinoVNC::loop(void)
     frames = 0;
 #endif
 #ifdef VNC_ZRLE
+    if (!zout_buffer)
+    {
+      zout_buffer = (uint8_t *)malloc(TDEFL_LZ_DICT_SIZE);
+    }
+    if (!zout_buffer)
+    {
+      DEBUG_VNC("zout_buffer malloc failed!\n");
+    }
+
     tinfl_init(&inflator);
     // reset dict
     memset(zdict, 0, TINFL_LZ_DICT_SIZE);
