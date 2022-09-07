@@ -1188,6 +1188,8 @@ bool arduinoVNC::rfb_handle_server_message()
           break;
         }
 
+        display->flush();
+
 #ifdef FPS_BENCHMARK
         unsigned long encodingTime = micros() - encodingStart;
         double fps = ((double)(1 * 1000 * 1000) / (double)encodingTime);

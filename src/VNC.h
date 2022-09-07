@@ -171,6 +171,8 @@ public:
 
   virtual void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color) = 0;
 
+  virtual void flush() {};
+
   virtual void vnc_options_override(dfb_vnc_options *opt){};
 };
 
