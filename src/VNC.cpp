@@ -229,6 +229,14 @@ void arduinoVNC::loop(void)
     frames = 0;
 #endif
 #ifdef VNC_ZRLE
+    if (!zdict)
+    {
+      zdict = (uint8_t *)malloc(TDEFL_LZ_DICT_SIZE);
+    }
+    if (!zdict)
+    {
+      DEBUG_VNC("zdict malloc failed!\n");
+    }
     if (!zout_buffer)
     {
       zout_buffer = (uint8_t *)malloc(TDEFL_LZ_DICT_SIZE);

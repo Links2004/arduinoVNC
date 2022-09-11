@@ -312,7 +312,7 @@ private:
   uint8_t *zin_buffer;
   size_t allocated_zin = 0, zin_buf_size = 0, zin_buf_ofs = 0;
 
-  uint8_t zdict[TDEFL_LZ_DICT_SIZE];
+  uint8_t *zdict;
   size_t zdict_ofs = 0;
 
   uint8_t *zout_buffer;
