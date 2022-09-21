@@ -311,6 +311,11 @@ void arduinoVNC::mouseEvent(uint16_t x, uint16_t y, uint8_t buttonMask)
   rfb_update_mouse();
 }
 
+void arduinoVNC::keyEvent(int key, int down_flag)
+{
+  rfb_send_key_event(key, down_flag);
+}
+
 void arduinoVNC::reconnect(void)
 {
   // auto reconnect on next loop
