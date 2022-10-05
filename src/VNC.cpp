@@ -486,8 +486,7 @@ bool arduinoVNC::read_from_z(uint8_t *out, size_t n)
     }
 
     size_t in_buf_size = zin_buf_size - zin_buf_ofs, dst_buf_size = TINFL_LZ_DICT_SIZE - zdict_ofs;
-    tinfl_status status = tinfl_decompress(&inflator, (const mz_uint8 *)zin_buffer + zin_buf_ofs, &in_buf_size, zdict, zdict + zdict_ofs, &dst_buf_size,
-                                           flag);
+    tinfl_decompress(&inflator, (const mz_uint8 *)zin_buffer + zin_buf_ofs, &in_buf_size, zdict, zdict + zdict_ofs, &dst_buf_size, flag);
     zin_buf_ofs += in_buf_size;
     memcpy(zout_buffer + zout_buf_idx, zdict + zdict_ofs, dst_buf_size);
 
