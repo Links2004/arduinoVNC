@@ -19,8 +19,8 @@
  *	(GEnie : OUTER; CIS : [71755,204])
  */
 
-#define EN0	0	/* MODE == encrypt */
-#define DE1	1	/* MODE == decrypt */
+#define EN0 0 /* MODE == encrypt */
+#define DE1 1 /* MODE == decrypt */
 
 extern void deskey(unsigned char *, int);
 /*		      hexkey[8]     MODE
