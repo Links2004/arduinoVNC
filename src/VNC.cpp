@@ -1739,7 +1739,6 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
   uint16_t remaining_w, remaining_h;
   size_t tile_size;
   uint16_t *p;
-  bool bad_block = false;
 
   CARD8 subrect_encoding;
 
@@ -1899,7 +1898,6 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
           if (runLengthCount > tile_size)
           {
             DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d Plain RLE runLengthCount(%d) > tile_size(%d)!\n", subrect_encoding, runLengthCount, tile_size);
-            bad_block = false;
           }
           else
           {
@@ -1939,7 +1937,6 @@ bool arduinoVNC::_handle_zrle_encoded_message(uint16_t x, uint16_t y, uint16_t w
           if (runLengthCount > tile_size)
           {
             DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d Palette RLE runLengthCount(%d) > tile_size(%d)!\n", subrect_encoding, runLengthCount, tile_size);
-            bad_block = true;
           }
           else
           {
