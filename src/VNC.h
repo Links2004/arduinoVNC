@@ -185,6 +185,7 @@ class arduinoVNC {
 
         void setMaxFPS(uint16_t fps);
         void mouseEvent(uint16_t x, uint16_t y, uint8_t buttonMask);
+        void keyEvent(int key, int keyMask);
 
     private:
         bool onlyFullUpdate;
