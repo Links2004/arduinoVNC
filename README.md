@@ -31,6 +31,7 @@ Video:
 ##### Supported Displays #####
  - ILI9341 [library](https://github.com/Links2004/Adafruit_ILI9341)
  - ST7789 [library](https://github.com/Bodmer/TFT_eSPI)
+ - ST7796 [library](https://github.com/lovyan03/LovyanGFX)
  
 more possible using ```VNCdisplay``` Interface
  
