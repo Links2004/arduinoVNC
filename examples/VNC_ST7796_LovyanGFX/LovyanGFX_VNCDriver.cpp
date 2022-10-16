@@ -8,7 +8,6 @@ VNCDriver::VNCDriver(LGFX *lgfx) {
 }
 
 VNCDriver::~VNCDriver() {
-  delete _lcd;
 }
 
 bool VNCDriver::hasCopyRect(void) {
