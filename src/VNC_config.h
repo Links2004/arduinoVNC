@@ -27,6 +27,8 @@
 #ifndef VNC_CONFIG_H_
 #define VNC_CONFIG_H_
 
+#ifndef VNC_USER_SETUP_LOADED
+
 /// Display
 #define VNC_ILI9341
 #define VNC_ST7789
@@ -34,10 +36,8 @@
 // RA8875 not fully implemented
 //#define VNC_RA8875
 
-
 /// TCP layer
 #define USE_ARDUINO_TCP
-#define VNC_TCP_TIMEOUT 5000
 
 /// VNC Encodes
 #define VNC_RRE
@@ -61,6 +61,12 @@
 
 /// Memory Options
 //#define VNC_SAVE_MEMORY
+
+#endif /* VNC_USER_SETUP_LOADED */
+
+#ifndef VNC_TCP_TIMEOUT
+#define VNC_TCP_TIMEOUT 5000
+#endif
 
 #ifndef VNC_SAVE_MEMORY
 // 15KB raw input buffer
