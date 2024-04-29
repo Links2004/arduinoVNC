@@ -1179,9 +1179,6 @@ bool arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader re
     uint16_t colour;
     CARD8 rect[4];
 
-    if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
-        return false;
-    }
     if(!read_from_rfb_server(sock, (char *) &header, sz_rfbRREHeader)) {
         return false;
     }
