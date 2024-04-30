@@ -1,5 +1,5 @@
 #include "LovyanGFX_VNCDriver.h"
-
+#ifdef ESP32
 VNCDriver::VNCDriver(LGFX *lgfx) {
   _lcd = lgfx;
   _lcd->setRotation(1);
@@ -62,3 +62,4 @@ void VNCDriver::print_screen(String title, String msg, int color) {
 void VNCDriver::print(String text) {
   _lcd->print(text);
 }
+#endif

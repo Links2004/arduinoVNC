@@ -1,4 +1,6 @@
 #pragma once
+
+#ifdef ESP32
 #include "VNC_config.h"
 #include "VNC.h"
 #define LGFX_USE_V1
@@ -107,3 +109,4 @@ public:
 private:
   LGFX* _lcd;
 };
+#endif
