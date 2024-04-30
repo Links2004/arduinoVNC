@@ -10,8 +10,17 @@
  *  - arduinoVNC (https://github.com/Links2004/arduinoVNC)
  *  - LovyanGFX (https://github.com/lovyan03/LovyanGFX)
  */
-
 #include <Arduino.h>
+
+#ifndef ESP32
+// this only works on the ESP32
+void setup(void) {
+  Serial.begin(115200);
+  Serial.println("Only works on ESP32");
+}
+void loop(void) {}
+
+#else
 #include <WiFi.h>
 #include <VNC.h>
 #include "LovyanGFX_VNCDriver.h"
@@ -106,3 +115,4 @@ void touchEvent() {
 String getVNCAddr() {
   return String(vnc_ip) + String(":") + String(vnc_port);
 }
+#endif
