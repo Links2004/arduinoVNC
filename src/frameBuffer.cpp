@@ -120,12 +120,9 @@ void FrameBuffer::draw_rect(uint32_t x, uint32_t y, uint32_t rw, uint32_t rh, ui
       //  DEBUG_VNC("[FrameBuffer::draw_rect] x: %d y: %d rw: %d rh: %d color: 0x%04X\n", x, y, rw, rh, color);
        // delay(10);
 
-    uint8_t * ptr = buffer + (((y * w) + x) * sizeof(color));
-    uint32_t offset = ((w - rw) * 2);
+    uint16_t * ptr = (uint16_t*)buffer + (((y * w) + x));
+    uint32_t offset = w - rw;
     uint32_t xc;
-
-    uint8_t colorLow = (color & 0xFF);
-    uint8_t colorHigh = ((color >> 8) & 0xFF);
 
     //DEBUG_VNC("[FrameBuffer::draw_rect] offset: %d buffer: 0x%08X ptr: 0x%08X color: 0x%02X 0x%02X\n", offset, buffer, ptr, colorLow, colorHigh);
     //delay(10);
@@ -133,9 +130,7 @@ void FrameBuffer::draw_rect(uint32_t x, uint32_t y, uint32_t rw, uint32_t rh, ui
     while(rh--) {
         xc = rw;
         while(xc--) {
-            *ptr = colorLow;
-            ptr++;
-            *ptr = colorHigh;
+            *ptr = color;
             ptr++;
         }
         ptr += offset;
