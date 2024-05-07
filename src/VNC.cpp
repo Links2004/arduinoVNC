@@ -193,7 +193,7 @@ void arduinoVNC::loop(void) {
         if (!rfb_set_desktop_size()) {
             DEBUG_VNC("Error set desktop size. Exiting.\n");
             disconnect();
-            delay(2000);
+            delay(500);
             return;
         }
 #endif
@@ -1861,7 +1861,6 @@ bool arduinoVNC::_handle_zrle_encoded_message(rfbFramebufferUpdateRectHeader rec
                     // DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] Palette RLE idx: %d, runLength: %d, runLengthCount: %d.\n", idx, runLength, runLengthCount);
                     if (runLengthCount > tile_size) {
                         DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d Palette RLE runLengthCount(%d) > tile_size(%d)\n", subrect_encoding, runLengthCount, tile_size);
-                        while(1) delay(1000);
                     } else {
                         while (runLength--) {
                             *p++ = color;

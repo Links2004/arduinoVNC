@@ -27,9 +27,9 @@
 #ifndef VNC_ILI9341_H_
 #define VNC_ILI9341_H_
 
-#ifdef VNC_ILI9341
-
 #include "VNC_config.h"
+
+#ifdef VNC_ILI9341
 
 #include <Adafruit_ILI9341.h>
 #include "VNC_ILI9341.h"
