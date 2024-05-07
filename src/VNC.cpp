@@ -219,20 +219,29 @@ void arduinoVNC::loop(void) {
 
         DEBUG_VNC("vnc_connect Done.\n");
 
-#ifdef VNC_ZRLE
+#if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+        if (!zin) {
+            zin = (uint8_t *)malloc(ZRLE_INPUT_BUFFER);
+        }
+        if (!zin) {
+            DEBUG_VNC("zin_buffer malloc failed!\n");
+        }
+
         if (!zout) {
             zout = (uint8_t *)malloc(ZRLE_OUTPUT_BUFFER);
         }
         if (!zout) {
-            DEBUG_VNC("zdict malloc failed!\n");
+            DEBUG_VNC("zout malloc failed!\n");
         }
 
         tinfl_init(&inflator);
         // reset dict
         memset(zout, 0, ZRLE_OUTPUT_BUFFER);
         zout_next = zout;
-        zout_read = zout;
+#endif
 
+#ifdef VNC_ZRLE
+        zout_read = zout;
 #endif // #ifdef VNC_ZRLE
 
     } else {
@@ -391,12 +400,10 @@ bool arduinoVNC::read_from_z(uint8_t *out, size_t n) {
             zin_next = zin;
         }
 
-        mz_uint32 flag = TINFL_FLAG_HAS_MORE_INPUT | TINFL_FLAG_PARSE_ZLIB_HEADER;
-        
         size_t bytes_decompressed = zout + ZRLE_OUTPUT_BUFFER - zout_next;
         size_t bytes_consumed = bytes_available;
         // We cannot decompress into "out" directly, because it would have to have at least ZRLE_OUTPUT_BUFFER capacity
-        tinfl_status last_status = tinfl_decompress(&inflator, zin_next, &bytes_consumed, zout, zout_next, &bytes_decompressed, flag);
+        tinfl_status last_status = tinfl_decompress(&inflator, zin_next, &bytes_consumed, zout, zout_next, &bytes_decompressed, TINFL_FLAG_HAS_MORE_INPUT | TINFL_FLAG_PARSE_ZLIB_HEADER);
         bytes_available -= bytes_consumed;
         zin_next += bytes_consumed;
 
@@ -1557,8 +1564,123 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
 #ifdef VNC_ZLIB
 bool arduinoVNC::_handle_zlib_encoded_message(rfbFramebufferUpdateRectHeader rectheader)
 {
-	// TBD
-	return false;
+    rfbZlibHeader hdr;
+
+    DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] New message with size %zux%zu\n", rectheader.r.w, rectheader.r.h);
+
+    if (!read_from_rfb_server(sock, (char *)&hdr, sz_rfbZlibHeader)) {
+        return false;
+    }
+
+    size_t remaining = Swap32IfLE(hdr.nBytes);
+
+    DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] Byte size %zu\n", remaining);
+
+    size_t processed = 0;
+
+    zin_next = zin;
+    mz_uint32 flags = TINFL_FLAG_HAS_MORE_INPUT | TINFL_FLAG_PARSE_ZLIB_HEADER;
+
+    uint16_t w = rectheader.r.w;
+    uint16_t h = rectheader.r.h;
+
+    size_t bytes_available = 0;
+
+    bool leftOver = false;
+
+    int32_t xOffset = rectheader.r.x - opt.v_offset;
+    int32_t yOffset = rectheader.r.y - opt.h_offset;
+
+    int32_t xAvail = ((int32_t)display->getWidth())-xOffset;
+    int32_t yAvail = ((int32_t)display->getHeight())-yOffset;
+
+    bool allVisible =
+        xOffset >= 0 &&
+        yOffset >= 0 &&
+        w <= xAvail &&
+        h <= yAvail;
+
+    bool allHidden =
+        xOffset + w < 0 ||
+        yOffset + h < 0 ||
+        xOffset >= display->getWidth() ||
+        yOffset >= display->getHeight();
+
+    display->area_update_start(
+        max(0, xOffset),
+        max(0, yOffset),
+        min(xAvail, (int32_t)w),
+        min(yAvail, (int32_t)h)
+        );
+
+    DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] visi: %d hidden: %d\n", allVisible, allHidden);
+
+    while (remaining) {
+        size_t toRead = min(remaining, (size_t)ZRLE_INPUT_BUFFER - ((zin_next - zin) + bytes_available));
+
+        /* Fill the buffer, obtaining data from the server. */
+        if (!read_from_rfb_server(sock, (char*)zin_next, toRead)) {
+            return false;
+        }
+        if(!bytes_available) {
+            zin_next = zin;
+        }
+        remaining -= toRead;
+        bytes_available += toRead;
+
+        while(bytes_available) {
+            size_t bytes_decompressed = zout + ZRLE_OUTPUT_BUFFER - zout_next;
+            size_t bytes_consumed = bytes_available;
+
+            tinfl_status last_status = tinfl_decompress(&inflator, zin_next, &bytes_consumed, zout, zout_next, &bytes_decompressed, flags);
+            if(last_status < TINFL_STATUS_DONE) {
+                DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] decoding failed: %d\n", last_status);
+                return false;
+            }
+            bytes_available -= bytes_consumed;
+            zin_next += bytes_consumed;
+            // Consume byte left from last run
+            if(leftOver) {
+                bytes_decompressed++;
+                zout_next--;
+            }
+            if(allVisible) {
+                display->area_update_data((char *)zout_next, bytes_decompressed / 2);
+                processed += bytes_decompressed / 2;
+            } else if (allHidden){
+                processed += bytes_decompressed / 2;
+            } else {
+                uint32_t n = 0;
+                while(n+1 < bytes_decompressed) {
+                    int32_t cX = (processed % w) + xOffset;
+                    int32_t cY = (processed / w) + yOffset;
+                    if(cX >= 0 && cY >= 0 && cX < display->getWidth() && cY < display->getHeight()) {
+                        // This could be further optimized to consider line wrapping, but doesn't seem worth the effort
+                        uint32_t printable = min(display->getWidth() - cX, (bytes_decompressed-n) / 2);
+                        display->area_update_data((char *)zout_next+n, printable);
+                        processed += printable;
+                        n += printable*2;
+                    } else {
+                        processed++;
+                        n += 2;
+                    }
+                }
+            }
+            zout_next += bytes_decompressed;
+            // Check if we have a left over byte for next run
+            leftOver = bytes_decompressed % 2;
+            if(zout_next >= zout + ZRLE_OUTPUT_BUFFER) {
+                zout_next = zout;
+            }
+            DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] Avail: %zu Consumed: %zu Decomp: %zu AvailOut: %zu Status: %d\n", bytes_available, bytes_consumed, bytes_decompressed, zout + ZRLE_OUTPUT_BUFFER - zout_next, last_status);
+        }
+    }
+
+    display->area_update_end();
+
+    DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] done (%zu of %zu)\n", processed, w*h);
+
+    return true;
 }
 #endif
 
@@ -1578,14 +1700,6 @@ bool arduinoVNC::_handle_zrle_encoded_message(rfbFramebufferUpdateRectHeader rec
     uint32_t len = Swap32IfLE(zlh.nBytes);
 
     DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] len: %zu\n", len);
-
-    if (!zin) {
-        zin = (uint8_t *)malloc(ZRLE_INPUT_BUFFER);
-    }
-    if (!zin) {
-        DEBUG_VNC("[_handle_zrle_encoded_message] zin_buffer malloc failed!\n");
-        return false;
-    }
 
     msg_bytes_remain = len;
     zin_next = zin;

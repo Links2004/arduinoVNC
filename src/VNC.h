@@ -298,17 +298,26 @@ class arduinoVNC {
 #endif
 #endif  // USE_ARDUINO_TCP
 
-#ifdef VNC_ZRLE
-#define ZRLE_INPUT_BUFFER 1024
-#define ZRLE_OUTPUT_BUFFER TINFL_LZ_DICT_SIZE
-        uint16_t framebuffer[FB_SIZE];
-
+#if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+#define ZRLE_INPUT_BUFFER (1024 * 10)
+#define ZRLE_OUTPUT_BUFFER (TINFL_LZ_DICT_SIZE * 2)
         tinfl_decompressor inflator;
 
         // Input buffer
         uint8_t *zin;
+
         // Current read position in input buffer
         uint8_t *zin_next = 0;
+
+        // Decompression buffer
+        mz_uint8 *zout;
+
+        // Current write position in output buffer
+        uint8_t *zout_next;
+#endif
+
+#ifdef VNC_ZRLE
+        uint16_t framebuffer[FB_SIZE];
 
         // number of unprocessed bytes in zin
         size_t bytes_available = 0;
@@ -316,10 +325,6 @@ class arduinoVNC {
         // number of unprocessed bytes for current msg
         size_t msg_bytes_remain = 0;
 
-        // Decompression buffer
-        mz_uint8 *zout;
-        // Next position to decompress to
-        mz_uint8 *zout_next = 0;
         // Next position to read from
         uint8_t *zout_read = 0;
 
