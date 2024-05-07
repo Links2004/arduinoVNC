@@ -35,6 +35,14 @@
 
 #include "Arduino.h"
 
+#if defined(VNC_ZRLE) || defined(VNC_ZLIB)
+#if defined(ESP32)
+#include "esp32/rom/miniz.h"
+#else
+#include "miniz.h"
+#endif
+#endif // #ifdef VNC_ZRLE
+
 #ifdef USE_ARDUINO_TCP
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -213,6 +221,9 @@ class arduinoVNC {
         bool write_exact(int sock, char *buf, size_t n);
         bool set_non_blocking(int sock);
 
+#ifdef VNC_ZRLE
+        bool read_from_z(uint8_t *out, size_t n);
+#endif // #ifdef VNC_ZRLE
 
         /// Connect to Server
         bool rfb_connect_to_server(const char *server, int display);
@@ -228,6 +239,7 @@ class arduinoVNC {
 
 
         bool rfb_set_format_and_encodings();
+        bool rfb_set_desktop_size();
         bool rfb_send_update_request(int incremental);
         bool rfb_set_continuous_updates(bool enable);
         bool rfb_handle_server_message();
@@ -247,6 +259,12 @@ class arduinoVNC {
 #endif
 #ifdef VNC_HEXTILE
         bool _handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
+#endif
+#ifdef VNC_ZLIB
+        bool _handle_zlib_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
+#endif
+#ifdef VNC_ZRLE
+        bool _handle_zrle_encoded_message(rfbFramebufferUpdateRectHeader rectheader);
 #endif
         bool _handle_cursor_pos_message(rfbFramebufferUpdateRectHeader rectheader);
 #ifdef VNC_RICH_CURSOR
@@ -278,9 +296,42 @@ class arduinoVNC {
         EthernetClient TCPclient;
 #endif
 #endif
+#endif  // USE_ARDUINO_TCP
+
+#if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+#define ZRLE_INPUT_BUFFER (1024 * 10)
+#define ZRLE_OUTPUT_BUFFER (TINFL_LZ_DICT_SIZE * 2)
+        tinfl_decompressor inflator;
+
+        // Input buffer
+        uint8_t *zin;
+
+        // Current read position in input buffer
+        uint8_t *zin_next = 0;
+
+        // Decompression buffer
+        mz_uint8 *zout;
+
+        // Current write position in output buffer
+        uint8_t *zout_next;
+#endif
+
+#ifdef VNC_ZRLE
+        uint16_t framebuffer[FB_SIZE];
+
+        // number of unprocessed bytes in zin
+        size_t bytes_available = 0;
+        
+        // number of unprocessed bytes for current msg
+        size_t msg_bytes_remain = 0;
+
+        // Next position to read from
+        uint8_t *zout_read = 0;
+
+        uint16_t palette[127];
 #endif
 
 };
 
 
-#endif /* MARKUS_VNC_H_ */
+#endif /* VNC_H_ */

@@ -27,6 +27,12 @@
 #ifndef ARDUINOVNC_SRC_FB_H_
 #define ARDUINOVNC_SRC_FB_H_
 
+#ifdef WORDS_BIGENDIAN
+#define Swap16IfLE(s) (s)
+#else
+#define Swap16IfLE(s) __builtin_bswap16(s)
+#endif /* WORDS_BIGENDIAN */
+
 class FrameBuffer {
     public:
         FrameBuffer();
@@ -37,6 +43,7 @@ class FrameBuffer {
         void freeBuffer(void);
 
         void draw_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t color);
+        uint32_t currentSize() {return size;}
 
     private:
         uint32_t w;

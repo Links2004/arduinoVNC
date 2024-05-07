@@ -43,17 +43,10 @@
 #include "tight.h"
 #endif
 
-#ifdef VNC_ZLIB
-#include <zlib.h>
-#endif
 
 extern "C" {
 #include "d3des.h"
 }
-
-#ifndef min
-#define min(a,b) ((a)<(b)?(a):(b))
-#endif
 
 //#############################################################################################
 
@@ -103,11 +96,7 @@ void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate) {
     opt.client.bpp = 16;
     opt.client.depth = 16;
 
-#ifdef ESP32
-    opt.client.bigendian = 0;
-#else
     opt.client.bigendian = 1;
-#endif
     opt.client.truecolour = 1;
 
     opt.client.redmax = 31;
@@ -118,7 +107,11 @@ void arduinoVNC::begin(char *_host, uint16_t _port, bool _onlyFullUpdate) {
     opt.client.greenshift = 5;
     opt.client.blueshift = 0;
 
+#ifdef VNC_COMPRESS_LEVEL
+    opt.client.compresslevel = VNC_COMPRESS_LEVEL;
+#else
     opt.client.compresslevel = 99;
+#endif
     opt.client.quality = 99;
 
     opt.shared = 1;
@@ -162,7 +155,7 @@ void arduinoVNC::loop(void) {
     static uint16_t fails = 0;
     static unsigned long lastUpdate = 0;
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
     if(WiFi.status() != WL_CONNECTED) {
         if(connected()) {
             disconnect();
@@ -195,6 +188,16 @@ void arduinoVNC::loop(void) {
             return;
         }
 
+#ifdef SET_DESKTOP_SIZE
+        /* set display resolution */
+        if (!rfb_set_desktop_size()) {
+            DEBUG_VNC("Error set desktop size. Exiting.\n");
+            disconnect();
+            delay(500);
+            return;
+        }
+#endif
+
         /* calculate horizontal and vertical offset */
         if(opt.client.width > opt.server.width) {
             opt.h_offset = rint((opt.client.width - opt.server.width) / 2);
@@ -215,6 +218,31 @@ void arduinoVNC::loop(void) {
         //rfb_set_continuous_updates(1);
 
         DEBUG_VNC("vnc_connect Done.\n");
+
+#if defined(VNC_ZLIB) || defined(VNC_ZRLE)
+        if (!zin) {
+            zin = (uint8_t *)malloc(ZRLE_INPUT_BUFFER);
+        }
+        if (!zin) {
+            DEBUG_VNC("zin_buffer malloc failed!\n");
+        }
+
+        if (!zout) {
+            zout = (uint8_t *)malloc(ZRLE_OUTPUT_BUFFER);
+        }
+        if (!zout) {
+            DEBUG_VNC("zout malloc failed!\n");
+        }
+
+        tinfl_init(&inflator);
+        // reset dict
+        memset(zout, 0, ZRLE_OUTPUT_BUFFER);
+        zout_next = zout;
+#endif
+
+#ifdef VNC_ZRLE
+        zout_read = zout;
+#endif // #ifdef VNC_ZRLE
 
     } else {
         if(!rfb_handle_server_message()) {
@@ -325,6 +353,93 @@ bool arduinoVNC::read_from_rfb_server(int sock, char *out, size_t n) {
     return true;
 }
 
+#ifdef VNC_ZRLE
+bool arduinoVNC::read_from_z(uint8_t *out, size_t n) {
+    // Make our life a bit easier
+    if(n > ZRLE_OUTPUT_BUFFER) {
+        DEBUG_VNC("[read_from_z] Cannot read more than %d bytes (%d)\n", ZRLE_OUTPUT_BUFFER, n);
+        return false;
+    }
+
+    bool decompress_more = true;
+
+    // Check if we already decompressed enough data in the run before
+    if(zout_read != zout_next) {
+        size_t buf_size = 0;
+        if(zout_read < zout_next) {
+            buf_size = zout_next - zout_read;
+        } else {
+            buf_size = ZRLE_OUTPUT_BUFFER - (zout_read - zout_next);
+        }
+        if(buf_size < n) {
+            DEBUG_VNC_ZRLE("[read_from_z] Partially in buffer: %d of %d\n", buf_size, n);
+            // Data is only partially available
+            memcpy(out, zout_read, buf_size);
+            out += buf_size;
+            n -= buf_size;
+            zout_read = zout_next;
+        }  else {
+            decompress_more = false;
+        }
+    }
+
+    while(decompress_more) {
+        DEBUG_VNC_ZRLE("[read_from_z] dict: %zu next: %zu avail: %zu\n", zout, zout_next, ZRLE_OUTPUT_BUFFER - (zout_next-zout));
+        if(!bytes_available) {
+            if(!msg_bytes_remain) {
+                DEBUG_VNC("[read_from_z] Empty buffer, but %d missing\n", n);
+                return false;
+            }
+            bytes_available = min(msg_bytes_remain, (size_t)ZRLE_INPUT_BUFFER);
+            DEBUG_VNC_ZRLE("[read_from_z] Reading %d\n", bytes_available);
+            if (!read_from_rfb_server(sock, (char *)zin, bytes_available)) {
+                DEBUG_VNC("[read_from_z] Failed reading from socket %d!\n", bytes_available);
+                return false;
+            }
+            msg_bytes_remain -= bytes_available;
+            zin_next = zin;
+        }
+
+        size_t bytes_decompressed = zout + ZRLE_OUTPUT_BUFFER - zout_next;
+        size_t bytes_consumed = bytes_available;
+        // We cannot decompress into "out" directly, because it would have to have at least ZRLE_OUTPUT_BUFFER capacity
+        tinfl_status last_status = tinfl_decompress(&inflator, zin_next, &bytes_consumed, zout, zout_next, &bytes_decompressed, TINFL_FLAG_HAS_MORE_INPUT | TINFL_FLAG_PARSE_ZLIB_HEADER);
+        bytes_available -= bytes_consumed;
+        zin_next += bytes_consumed;
+
+        zout_next += bytes_decompressed;
+        if (zout_next >= zout + ZRLE_OUTPUT_BUFFER) {
+            zout_next = zout;
+        }
+
+        if(bytes_decompressed < n) {
+            memcpy(out, zout_read, bytes_decompressed);
+            out += bytes_decompressed;
+            n -= bytes_decompressed;
+            zout_read = zout_next;
+        } else {
+            decompress_more = false;
+        }
+
+        DEBUG_VNC_ZRLE("[read_from_z] Available: %zu Consumed: %zu Decompressed: %zu Missing: %zu AvailOut: %zu Status: %d\n", bytes_available, bytes_consumed, bytes_decompressed, bytes_missing, ZRLE_OUTPUT_BUFFER - (zout_next-zout), last_status);
+        if(last_status < TINFL_STATUS_NEEDS_MORE_INPUT) {
+            DEBUG_VNC("[read_from_z] Error during decompression: %d\n", last_status);
+            return false;
+        }
+    }
+
+    // Copy data from decompression buffer into "out"
+    memcpy(out, zout_read, n);
+    zout_read += n;
+
+    if (zout_read >= zout + ZRLE_OUTPUT_BUFFER) {
+        zout_read = zout;
+    }
+
+    return true;
+}
+#endif // #ifdef VNC_ZRLE
+
 bool arduinoVNC::write_exact(int sock, char *buf, size_t n) {
     if(!connected()) {
         DEBUG_VNC("[write_exact] not connected!\n");
@@ -334,7 +449,7 @@ bool arduinoVNC::write_exact(int sock, char *buf, size_t n) {
 }
 
 bool arduinoVNC::set_non_blocking(int sock) {
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
     TCPclient.setNoDelay(true);
 #endif
     return true;
@@ -414,22 +529,22 @@ bool arduinoVNC::rfb_connect_to_server(const char *host, int port) {
 
 bool arduinoVNC::rfb_initialise_connection() {
     if(!_rfb_negotiate_protocol()) {
-        DEBUG_VNC("[rfb_initialise_connection] _rfb_negotiate_protocol()  Faild!\n");
+        DEBUG_VNC("[rfb_initialise_connection] _rfb_negotiate_protocol()  Failed!\n");
         return false;
     }
 
     if(!_rfb_authenticate()) {
-        DEBUG_VNC("[rfb_initialise_connection] _rfb_authenticate()  Faild!\n");
+        DEBUG_VNC("[rfb_initialise_connection] _rfb_authenticate()  Failed!\n");
         return false;
     }
 
     if(!_rfb_initialise_client()) {
-        DEBUG_VNC("[rfb_initialise_connection] _rfb_initialise_client()  Faild!\n");
+        DEBUG_VNC("[rfb_initialise_connection] _rfb_initialise_client()  Failed!\n");
         return false;
     }
 
     if(!_rfb_initialise_server()) {
-        DEBUG_VNC("[rfb_initialise_connection] _rfb_initialise_server() Faild!\n");
+        DEBUG_VNC("[rfb_initialise_connection] _rfb_initialise_server() Failed!\n");
         return false;
     }
 
@@ -734,6 +849,10 @@ bool arduinoVNC::rfb_set_format_and_encodings() {
     em.type = rfbSetEncodings;
 
     DEBUG_VNC("[VNC-CLIENT] Supported Encodings:\n");
+#ifdef VNC_ZRLE
+    enc[num_enc++] = Swap32IfLE(rfbEncodingZRLE);
+    DEBUG_VNC(" - ZRLE\n");
+#endif
 #ifdef VNC_TIGHT
     enc[num_enc++] = Swap32IfLE(rfbEncodingTight);
     DEBUG_VNC(" - Tight\n");
@@ -766,6 +885,11 @@ bool arduinoVNC::rfb_set_format_and_encodings() {
 
     DEBUG_VNC("[VNC-CLIENT] Supported Special Encodings:\n");
 
+#ifdef SET_DESKTOP_SIZE
+    enc[num_enc++] = Swap32IfLE(rfbEncodingNewFBSize);
+    DEBUG_VNC(" - SetDesktopSize\n");
+#endif
+
 #ifdef VNC_RICH_CURSOR
     enc[num_enc++] = Swap32IfLE(rfbEncodingRichCursor);
     DEBUG_VNC(" - RichCursor\n");
@@ -783,14 +907,14 @@ bool arduinoVNC::rfb_set_format_and_encodings() {
     enc[num_enc++] = Swap32IfLE(rfbEncodingContinuousUpdates);
     DEBUG_VNC(" - ContinuousUpdates\n");
 
-#if 0
     if (opt.client.compresslevel <= 9) {
         enc[num_enc++] = Swap32IfLE(rfbEncodingCompressLevel0 + opt.client.compresslevel);
+        DEBUG_VNC(" - compresslevel: %d\n", opt.client.compresslevel);
     }
     if (opt.client.quality <= 9) {
         enc[num_enc++] = Swap32IfLE(rfbEncodingQualityLevel0 + opt.client.quality);
+        DEBUG_VNC(" - quality: %d\n", opt.client.quality);
     }
-#endif
 
     em.nEncodings = Swap16IfLE(num_enc);
 
@@ -811,13 +935,49 @@ bool arduinoVNC::rfb_set_format_and_encodings() {
     return true;
 }
 
+
+#ifdef SET_DESKTOP_SIZE
+bool arduinoVNC::rfb_set_desktop_size() {
+    uint16_t w = opt.client.width;
+    uint16_t h = opt.client.height;
+
+    DEBUG_VNC("[rfb_set_desktop_size] setting desktop size to %dx%d\n", w, h);
+
+    // override server resolution
+    opt.server.width = w;
+    opt.server.height = h;
+
+    w = Swap16IfLE(w);
+    h = Swap16IfLE(h);
+    rfbSetDesktopSizeMsg ds;
+    ds.type = rfbSetDesktopSize;
+    ds.pad1 = 0;
+    ds.width = w;
+    ds.height = h;
+    ds.numScreens = 1;
+    ds.pad2 = 0;
+    ds.layoutId = 1;
+    ds.layoutX = 0;
+    ds.layoutY = 0;
+    ds.layoutWidth = w;
+    ds.layoutHeight = h;
+    ds.layoutFlag = 0;
+
+    if (!write_exact(sock, (char *)&ds, sz_rfbSetDesktopSizeMsg)) {
+        return false;
+    }
+
+    return true;
+}
+#endif
+
 bool arduinoVNC::rfb_send_update_request(int incremental) {
     rfbFramebufferUpdateRequestMsg urq = { 0 };
 
     urq.type = rfbFramebufferUpdateRequest;
     urq.incremental = incremental;
-    urq.x = 0;
-    urq.y = 0;
+    urq.x = opt.v_offset;
+    urq.y = opt.h_offset;
     urq.w = opt.server.width;
     urq.h = opt.server.height;
 
@@ -839,8 +999,8 @@ bool arduinoVNC::rfb_set_continuous_updates(bool enable) {
 
     urq.type = rfbEnableContinuousUpdates;
     urq.enable = enable;
-    urq.x = 0;
-    urq.y = 0;
+    urq.x = opt.v_offset;
+    urq.y = opt.h_offset;
     urq.w = opt.server.width;
     urq.h = opt.server.height;
 
@@ -884,7 +1044,6 @@ bool arduinoVNC::rfb_handle_server_message() {
                     unsigned long encodingStart = micros();
 #endif
                     bool encodingResult = false;
-                    //wdt_disable();
                     switch(rectheader.encoding) {
                         case rfbEncodingRaw:
                             encodingResult = _handle_raw_encoded_message(rectheader);
@@ -905,6 +1064,11 @@ bool arduinoVNC::rfb_handle_server_message() {
 #ifdef VNC_HEXTILE
                         case rfbEncodingHextile:
                             encodingResult = _handle_hextile_encoded_message(rectheader);
+                            break;
+#endif
+#ifdef VNC_ZRLE
+                        case rfbEncodingZRLE:
+                            encodingResult = _handle_zrle_encoded_message(rectheader);
                             break;
 #endif
 #ifdef VNC_TIGHT
@@ -933,6 +1097,12 @@ bool arduinoVNC::rfb_handle_server_message() {
                             DEBUG_VNC("[rfbEncodingLastRect] LAST\n");
                             encodingResult = true;
                             break;
+#ifdef SET_DESKTOP_SIZE
+                        case rfbEncodingNewFBSize:
+                            DEBUG_VNC("[rfbEncodingNewFBSize]\n");
+                            encodingResult = true;
+                            break;
+#endif
                         default:
                             DEBUG_VNC("Unknown encoding 0x%08X %d\n", rectheader.encoding, rectheader.encoding);
                             break;
@@ -941,11 +1111,11 @@ bool arduinoVNC::rfb_handle_server_message() {
 #ifdef FPS_BENCHMARK
                     unsigned long encodingTime = micros() - encodingStart;
                     double fps = ((double) (1 * 1000 * 1000) / (double) encodingTime);
-                    os_printf("[Benchmark][0x%08X][%d]\t us: %d \tfps: %s \tHeap: %d\n", rectheader.encoding, rectheader.encoding, encodingTime, String(fps, 2).c_str(), ESP.getFreeHeap());
+                    DEBUG_VNC("[Benchmark][0x%08X][%d]\t us: %d \tfps: %s \tHeap: %d\n", rectheader.encoding, rectheader.encoding, encodingTime, String(fps, 2).c_str(), ESP.getFreeHeap());
 #endif
                     //wdt_enable(0);
                     if(!encodingResult) {
-                        DEBUG_VNC("[0x%08X][%d] encoding Faild!\n", rectheader.encoding, rectheader.encoding);
+                        DEBUG_VNC("[0x%08X][%d] encoding Failed!\n", rectheader.encoding, rectheader.encoding);
                         disconnect();
                         return false;
                     } else {
@@ -1080,12 +1250,12 @@ bool arduinoVNC::_handle_raw_encoded_message(rfbFramebufferUpdateRectHeader rect
 
     DEBUG_VNC_RAW("[_handle_raw_encoded_message] msgPixel: %d msgSize: %d\n", msgPixel, msgSize);
 
-    display->area_update_start(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);
+    display->area_update_start(rectheader.r.x - opt.v_offset, rectheader.r.y - opt.h_offset, rectheader.r.w, rectheader.r.h);
 #ifdef VNC_SAVE_MEMORY
     buf = (char *) malloc(msgSize);
 #endif
     if(!buf) {
-        DEBUG_VNC("[_handle_raw_encoded_message] TO LESS MEMEORE TO HANDLE DATA!");
+        DEBUG_VNC("[_handle_raw_encoded_message] TO LESS MEMORY TO HANDLE DATA!");
         return false;
     }
 
@@ -1155,7 +1325,7 @@ bool arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rect
         return false;
     }
 
-    display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, colour);
+    display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, Swap16IfLE(colour));
 
     /* subrect pixel values */
     for(uint32_t i = 0; i < header.nSubrects; i++) {
@@ -1166,7 +1336,7 @@ bool arduinoVNC::_handle_rre_encoded_message(rfbFramebufferUpdateRectHeader rect
             return false;
         display->draw_rect(
         Swap16IfLE(rect[0]) + rectheader.r.x,
-        Swap16IfLE(rect[1]) + rectheader.r.y, Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), colour);
+        Swap16IfLE(rect[1]) + rectheader.r.y, Swap16IfLE(rect[2]), Swap16IfLE(rect[3]), Swap16IfLE(colour));
     }
 
     return true;
@@ -1188,7 +1358,7 @@ bool arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader re
     if(!read_from_rfb_server(sock, (char *) &colour, sizeof(colour))) {
         return false;
     }
-    display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, colour);
+    display->draw_rect(rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h, Swap16IfLE(colour));
 
     /* subrect pixel values */
     for(uint32_t i = 0; i < header.nSubrects; i++) {
@@ -1198,7 +1368,7 @@ bool arduinoVNC::_handle_corre_encoded_message(rfbFramebufferUpdateRectHeader re
         if(!read_from_rfb_server(sock, (char *) &rect, sizeof(rect))) {
             return false;
         }
-        display->draw_rect(rect[0] + rectheader.r.x, rect[1] + rectheader.r.y, rect[2], rect[3], colour);
+        display->draw_rect(rect[0] + rectheader.r.x, rect[1] + rectheader.r.y, rect[2], rect[3], Swap16IfLE(colour));
     }
     return true;
 }
@@ -1368,7 +1538,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                     }
                 }
 #ifdef VNC_FRAMEBUFFER
-                display->draw_area(rect_xW, rect_yW, tile_w, tile_h, fb.getPtr());
+                display->draw_area(rect_xW - opt.v_offset, rect_yW - opt.h_offset, tile_w, tile_h, fb.getPtr());
 #endif
             }
             j++;
@@ -1390,6 +1560,347 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
     return true;
 }
 #endif
+
+#ifdef VNC_ZLIB
+bool arduinoVNC::_handle_zlib_encoded_message(rfbFramebufferUpdateRectHeader rectheader)
+{
+    rfbZlibHeader hdr;
+
+    DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] New message with size %zux%zu\n", rectheader.r.w, rectheader.r.h);
+
+    if (!read_from_rfb_server(sock, (char *)&hdr, sz_rfbZlibHeader)) {
+        return false;
+    }
+
+    size_t remaining = Swap32IfLE(hdr.nBytes);
+
+    DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] Byte size %zu\n", remaining);
+
+    size_t processed = 0;
+
+    zin_next = zin;
+    mz_uint32 flags = TINFL_FLAG_HAS_MORE_INPUT | TINFL_FLAG_PARSE_ZLIB_HEADER;
+
+    uint16_t w = rectheader.r.w;
+    uint16_t h = rectheader.r.h;
+
+    size_t bytes_available = 0;
+
+    bool leftOver = false;
+
+    int32_t xOffset = rectheader.r.x - opt.v_offset;
+    int32_t yOffset = rectheader.r.y - opt.h_offset;
+
+    int32_t xAvail = ((int32_t)display->getWidth())-xOffset;
+    int32_t yAvail = ((int32_t)display->getHeight())-yOffset;
+
+    bool allVisible =
+        xOffset >= 0 &&
+        yOffset >= 0 &&
+        w <= xAvail &&
+        h <= yAvail;
+
+    bool allHidden =
+        xOffset + w < 0 ||
+        yOffset + h < 0 ||
+        xOffset >= display->getWidth() ||
+        yOffset >= display->getHeight();
+
+    display->area_update_start(
+        max(0, xOffset),
+        max(0, yOffset),
+        min(xAvail, (int32_t)w),
+        min(yAvail, (int32_t)h)
+        );
+
+    DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] visi: %d hidden: %d\n", allVisible, allHidden);
+
+    while (remaining) {
+        size_t toRead = min(remaining, (size_t)ZRLE_INPUT_BUFFER - ((zin_next - zin) + bytes_available));
+
+        /* Fill the buffer, obtaining data from the server. */
+        if (!read_from_rfb_server(sock, (char*)zin_next, toRead)) {
+            return false;
+        }
+        if(!bytes_available) {
+            zin_next = zin;
+        }
+        remaining -= toRead;
+        bytes_available += toRead;
+
+        while(bytes_available) {
+            size_t bytes_decompressed = zout + ZRLE_OUTPUT_BUFFER - zout_next;
+            size_t bytes_consumed = bytes_available;
+
+            tinfl_status last_status = tinfl_decompress(&inflator, zin_next, &bytes_consumed, zout, zout_next, &bytes_decompressed, flags);
+            if(last_status < TINFL_STATUS_DONE) {
+                DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] decoding failed: %d\n", last_status);
+                return false;
+            }
+            bytes_available -= bytes_consumed;
+            zin_next += bytes_consumed;
+            // Consume byte left from last run
+            if(leftOver) {
+                bytes_decompressed++;
+                zout_next--;
+            }
+            if(allVisible) {
+                display->area_update_data((char *)zout_next, bytes_decompressed / 2);
+                processed += bytes_decompressed / 2;
+            } else if (allHidden){
+                processed += bytes_decompressed / 2;
+            } else {
+                uint32_t n = 0;
+                while(n+1 < bytes_decompressed) {
+                    int32_t cX = (processed % w) + xOffset;
+                    int32_t cY = (processed / w) + yOffset;
+                    if(cX >= 0 && cY >= 0 && cX < display->getWidth() && cY < display->getHeight()) {
+                        // This could be further optimized to consider line wrapping, but doesn't seem worth the effort
+                        uint32_t printable = min(display->getWidth() - cX, (bytes_decompressed-n) / 2);
+                        display->area_update_data((char *)zout_next+n, printable);
+                        processed += printable;
+                        n += printable*2;
+                    } else {
+                        processed++;
+                        n += 2;
+                    }
+                }
+            }
+            zout_next += bytes_decompressed;
+            // Check if we have a left over byte for next run
+            leftOver = bytes_decompressed % 2;
+            if(zout_next >= zout + ZRLE_OUTPUT_BUFFER) {
+                zout_next = zout;
+            }
+            DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] Avail: %zu Consumed: %zu Decomp: %zu AvailOut: %zu Status: %d\n", bytes_available, bytes_consumed, bytes_decompressed, zout + ZRLE_OUTPUT_BUFFER - zout_next, last_status);
+        }
+    }
+
+    display->area_update_end();
+
+    DEBUG_VNC_ZLIB("[_handle_zlib_encoded_message] done (%zu of %zu)\n", processed, w*h);
+
+    return true;
+}
+#endif
+
+#ifdef VNC_ZRLE
+bool arduinoVNC::_handle_zrle_encoded_message(rfbFramebufferUpdateRectHeader rectheader) {
+    uint16_t x = rectheader.r.x;
+    uint16_t y = rectheader.r.y;
+    uint16_t w = rectheader.r.w;
+    uint16_t h = rectheader.r.h;
+
+    DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] x: %d y: %d w: %d h: %d\n", x, y, w, h);
+
+    rfbZlibHeader zlh;
+    if (!read_from_rfb_server(sock, (char *)&zlh, sz_rfbZlibHeader)) {
+        return false;
+    }
+    uint32_t len = Swap32IfLE(zlh.nBytes);
+
+    DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] len: %zu\n", len);
+
+    msg_bytes_remain = len;
+    zin_next = zin;
+    bytes_available = 0;
+    zout_read = zout_next;
+
+    uint16_t rect_x, rect_y, rect_w, rect_h, i = 0, j = 0;
+    uint16_t rect_xW, rect_yW;
+
+    uint16_t tile_w = 64, tile_h = 64;
+    uint16_t remaining_w, remaining_h;
+    size_t tile_size;
+    uint16_t *p;
+
+    CARD8 subrect_encoding;
+
+    uint16_t color;
+    size_t idx;
+    size_t paletteSize = 0;
+
+    rect_w = remaining_w = w;
+    rect_h = remaining_h = h;
+    rect_x = x;
+    rect_y = y;
+
+    size_t runLengthCount = 0;
+    uint8_t runLenMinus1;
+    uint16_t runLength;
+
+    while (i < rect_h) {
+        /* the rect is divided into tiles of width and height 64. Iterate over
+        * those */
+        /* the last tile in a column could be smaller than 16 */
+        if (remaining_h < 64) {
+            tile_h = remaining_h;
+        }
+
+        /* the last tile in a row could also be smaller */
+        if (remaining_w < 64) {
+            tile_w = remaining_w;
+        } else {
+            remaining_w -= 64;
+        }
+
+        tile_size = tile_w * tile_h;
+        rect_xW = rect_x + j;
+        rect_yW = rect_y + i;
+
+        read_from_z(&subrect_encoding, 1);
+
+        if (subrect_encoding == rfbTrleRaw) {
+            DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d RAW x: %d y: %d w: %d h: %d\n", subrect_encoding, rect_xW, rect_yW, tile_w, tile_h);
+            read_from_z((uint8_t *)framebuffer, tile_size * 2);
+            display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
+        } else {
+            paletteSize = subrect_encoding & 127;
+
+            read_from_z((uint8_t *)&palette, paletteSize * 2);
+ 
+            if (subrect_encoding == rfbTrleSolid) {
+                DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d SOLID x: %d y: %d w: %d h: %d c: %d\n", subrect_encoding, rect_xW, rect_yW, tile_w, tile_h, palette[0]);
+                display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, Swap16IfLE(palette[0]));
+            } else if (subrect_encoding <= rfbTrleReusePackedPalette) {
+                p = framebuffer;
+                uint8_t data = 0;
+                if (paletteSize == 2) { // 1-bit
+                    DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d 1-bit, x: %d y: %d w: %d h: %d\n", subrect_encoding, rect_xW, rect_yW, tile_w, tile_h);
+
+                    for (int hidx = 0; hidx < tile_h; ++hidx) {
+                        for (idx = 0; idx < tile_w; ++idx) {
+                            if ((idx & 0b111) == 0) { // new byte
+                                read_from_z(&data, 1);
+                            } else {
+                                data <<= 1;
+                            }
+                            *p++ = palette[(data >> 7) & 127];
+                        }
+                    }
+                } else if (paletteSize <= 4) { // 3-4 palettes, 2-bit
+                    DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d 2-bit, x: %d y: %d w: %d h: %d\n", subrect_encoding, rect_xW, rect_yW, tile_w, tile_h);
+
+                    for (int hidx = 0; hidx < tile_h; ++hidx) {
+                        for (idx = 0; idx < tile_w; ++idx) {
+                            if ((idx & 0b11) == 0) { // new byte
+                                read_from_z(&data, 1);
+                            } else {
+                                data <<= 2;
+                            }
+                            *p++ = palette[(data >> 6) & 127];
+                        }
+                    }
+                } else if (paletteSize <= 16) { // 5-16 palettes, 4-bit
+                    DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d 4-bit, x: %d y: %d w: %d h: %d\n", subrect_encoding, rect_xW, rect_yW, tile_w, tile_h);
+
+                    for (int hidx = 0; hidx < tile_h; ++hidx) {
+                        for (idx = 0; idx < tile_w; ++idx) {
+                            if ((idx & 1) == 0) { // new byte
+                                read_from_z(&data, 1);
+                            } else {
+                                data <<= 4;
+                            }
+                            *p++ = palette[(data >> 4) & 127];
+                        }
+                    }
+                } else { // > 16 palettes, 8-bit
+                    DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d 8-bit, x: %d y: %d w: %d h: %d\n", subrect_encoding, rect_xW, rect_yW, tile_w, tile_h);
+
+                    for (idx = 0; idx < tile_size; ++idx) {
+                        read_from_z(&data, 1);
+                        *p++ = palette[data & 127];
+                    }
+                }
+
+                display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
+            } else if (subrect_encoding == rfbTrlePlainRLE) {
+                DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d Plain RLE x: %d y: %d w: %d h: %d\n", subrect_encoding, rect_xW, rect_yW, tile_w, tile_h);
+                p = framebuffer;
+                runLengthCount = 0;
+                while (runLengthCount < tile_size) {
+                    read_from_z((uint8_t *)&color, 2);
+
+                    runLength = 1;
+                    do {
+                        read_from_z(&runLenMinus1, 1);
+
+                        runLength += runLenMinus1;
+                    } while (runLenMinus1 == 255);
+
+                    runLengthCount += runLength;
+                    if (runLengthCount > tile_size) {
+                        DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d Plain RLE runLengthCount(%d) > tile_size(%d)\n", subrect_encoding, runLengthCount, tile_size);
+                    } else {
+                        while (runLength--) {
+                            *p++ = color;
+                        }
+                    }
+                }
+
+                display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
+            } else { // Palette RLE
+                DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d Palette RLE x: %d y: %d w: %d h: %d\n", subrect_encoding, rect_xW, rect_yW, tile_w, tile_h);
+                p = framebuffer;
+                runLengthCount = 0;
+                while (runLengthCount < tile_size) {
+                    read_from_z((uint8_t *)&idx, 1);
+
+                    runLength = 1;
+                    if ((idx & 128) != 0) {
+                        do {
+                            read_from_z(&runLenMinus1, 1);
+
+                            runLength += runLenMinus1;
+                        } while (runLenMinus1 == 255);
+                    }
+
+                    color = palette[idx & 127];
+
+                    runLengthCount += runLength;
+                    // DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] Palette RLE idx: %d, runLength: %d, runLengthCount: %d.\n", idx, runLength, runLengthCount);
+                    if (runLengthCount > tile_size) {
+                        DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] %d Palette RLE runLengthCount(%d) > tile_size(%d)\n", subrect_encoding, runLengthCount, tile_size);
+                    } else {
+                        while (runLength--) {
+                            *p++ = color;
+                        }
+                    }
+                }
+
+                display->draw_area(rect_xW, rect_yW, tile_w, tile_h, (uint8_t *)framebuffer);
+            }
+        }
+
+        // next tile
+        j += 64;
+        if (j >= rect_w) {
+            j = 0;
+            remaining_w = w;
+            tile_w = 64; /* reset for next row */
+            i += 64;
+
+            if (remaining_h >= 64) {
+                remaining_h -= 64;
+            } else {
+                break;
+            }
+        }
+
+        // DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] loop i: %d, j: %d\n", i, j);
+    }
+
+    // We need to consume the remaining data to make sure the TCP buffer is 
+    // at correct position and tinfl_decompress is in the right state
+    while(msg_bytes_remain > 0) {
+        DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] reading left-over bytes from message: %d\n", msg_bytes_remain);
+        uint8_t skipped;
+        read_from_z(&skipped, 1);
+    }
+    DEBUG_VNC_ZRLE("[_handle_zrle_encoded_message] ------------------------ Fin ------------------------\n");
+    return true;
+}
+#endif // #ifdef VNC_ZRLE
 
 bool arduinoVNC::_handle_cursor_pos_message(rfbFramebufferUpdateRectHeader rectheader) {
     DEBUG_VNC_RICH_CURSOR("[HandleCursorPos] x: %d y: %d w: %d h: %d\n", rectheader.r.x, rectheader.r.y, rectheader.r.w, rectheader.r.h);

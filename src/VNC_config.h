@@ -62,6 +62,12 @@
 /// Memory Options
 //#define VNC_SAVE_MEMORY
 
+// zlib related
+#define VNC_COMPRESS_LEVEL 4
+
+/// VNC Pseudo-encodes
+#define SET_DESKTOP_SIZE // Set resolution according to display resolution
+
 #endif /* VNC_USER_SETUP_LOADED */
 
 #ifndef VNC_TCP_TIMEOUT
@@ -72,6 +78,12 @@
 // 15KB raw input buffer
 #define VNC_RAW_BUFFER 15360
 #endif
+
+/// Memory Options
+#ifdef VNC_ZRLE
+#define FB_SIZE (64 * 64)
+#endif // !VNC_ZRLE
+
 
 /// debugging
 #ifdef ESP32
@@ -86,6 +98,8 @@
 
 #define DEBUG_VNC_RAW(...)
 #define DEBUG_VNC_HEXTILE(...)
+#define DEBUG_VNC_ZLIB(...)
+#define DEBUG_VNC_ZRLE(...)
 #define DEBUG_VNC_RICH_CURSOR(...)
 
 #ifndef DEBUG_VNC
@@ -98,6 +112,14 @@
 
 #ifndef DEBUG_VNC_HEXTILE
 #define DEBUG_VNC_HEXTILE(...) DEBUG_VNC( __VA_ARGS__ )
+#endif
+
+#ifndef DEBUG_VNC_ZLIB
+#define DEBUG_VNC_ZLIB(...) DEBUG_VNC(__VA_ARGS__)
+#endif
+
+#ifndef DEBUG_VNC_ZRLE
+#define DEBUG_VNC_ZRLE(...) DEBUG_VNC(__VA_ARGS__)
 #endif
 
 #ifndef DEBUG_VNC_RICH_CURSOR
