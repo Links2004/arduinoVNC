@@ -18,10 +18,11 @@ Video:
  - CORRE
  - HEXTILE
  - COPYRECT (if display support it)
+ - ZLIB
+ - ZRLE
   
 ##### Not supported encodings #####
  - TIGHT
- - ZLIB
     
 ##### Supported Hardware #####
  - ESP8266 [Arduino for ESP8266](https://github.com/esp8266/Arduino)
