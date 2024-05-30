@@ -44,9 +44,14 @@
 #define VNC_CORRE
 #define VNC_HEXTILE
 
+// Only tested with ESP32s miniz.h implementation
+#ifdef ESP32
+#define VNC_ZLIB
+#define VNC_ZRLE
+#endif
+
 // not implemented
 //#define VNC_TIGHT
-//#define VNC_ZLIB
 //#define VNC_RICH_CURSOR
 //#define VNC_SEC_TYPE_TIGHT
 
