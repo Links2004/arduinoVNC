@@ -18,7 +18,7 @@ jobs:
   prepare_example_json:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: generate examples
         id: set-matrix
@@ -53,7 +53,7 @@ jobs:
       ARDUINO_DIRECTORIES_DATA: /home/runner/arduino_ide
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Get hash
         id: get-hash
@@ -61,7 +61,7 @@ jobs:
           echo "hash=$(/bin/date -u "+%Y%m%d")-$(md5sum ".github/workflows/main.yml" | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
         shell: bash
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         id: cache_all
         with:
           path: |
@@ -144,7 +144,7 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: install libgtk2.0-0
         run: |
@@ -156,7 +156,7 @@ jobs:
           echo "hash=$(/bin/date -u "+%Y%m%d")-$(md5sum ".github/workflows/main.yml" | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
         shell: bash
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         id: cache_all
         with:
           path: |

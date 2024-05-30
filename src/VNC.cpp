@@ -1607,8 +1607,8 @@ bool arduinoVNC::_handle_zlib_encoded_message(rfbFramebufferUpdateRectHeader rec
         yOffset >= display->getHeight();
 
     display->area_update_start(
-        max(0, xOffset),
-        max(0, yOffset),
+        max((int32_t)0, xOffset),
+        max((int32_t)0, yOffset),
         min(xAvail, (int32_t)w),
         min(yAvail, (int32_t)h)
         );
