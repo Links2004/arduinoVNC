@@ -1483,7 +1483,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                 fb.draw_rect(0, 0, tile_w, tile_h, bgColor);
 #else
                 /* fill the background */
-                display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, bgColor);
+                display->draw_rect(rect_xW, rect_yW, tile_w, tile_h, Swap16IfLE(bgColor));
 #endif
 
                 if(subrect_encoding & rfbHextileAnySubrects) {
@@ -1510,7 +1510,7 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
 #ifdef VNC_FRAMEBUFFER
                                 fb.draw_rect(bufPC->x, bufPC->y, bufPC->w + 1, bufPC->h + 1, bufPC->color);
 #else
-                                display->draw_rect(rect_xW + bufPC->x, rect_yW + bufPC->y, bufPC->w+1, bufPC->h+1, bufPC->color);
+                                display->draw_rect(rect_xW + bufPC->x, rect_yW + bufPC->y, bufPC->w+1, bufPC->h+1, Swap16IfLE(bufPC->color));
 #endif
                                 bufPC++;
                             }
@@ -1526,11 +1526,11 @@ bool arduinoVNC::_handle_hextile_encoded_message(rfbFramebufferUpdateRectHeader 
                             HextileSubrects_t * bufP = (HextileSubrects_t *) buf;
                             for(uint8_t n = 0; n < nr_subr; n++) {
 
-                                //  DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d bufP: 0x%08X\n", n, bufP);
+                                // DEBUG_VNC_HEXTILE("[_handle_hextile_encoded_message] nr_subr: %d bufP: 0x%08X\n", n, bufP);
 #ifdef VNC_FRAMEBUFFER
                                 fb.draw_rect(bufP->x, bufP->y, bufP->w + 1, bufP->h + 1, fgColor);
 #else
-                                display->draw_rect(rect_xW + bufP->x, rect_yW + bufP->y, bufP->w+1, bufP->h+1, fgColor);
+                                display->draw_rect(rect_xW + bufP->x, rect_yW + bufP->y, bufP->w+1, bufP->h+1, Swap16IfLE(fgColor));
 #endif
                                 bufP++;
                             }
