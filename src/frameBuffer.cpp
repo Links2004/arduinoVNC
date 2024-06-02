@@ -24,14 +24,7 @@
  *
  */
 
-#include <Arduino.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include "frameBuffer.h"
-
-#ifndef HEXDUMP_COLS
-#define HEXDUMP_COLS 32
-#endif
 
 /// debugging
 #ifdef ESP32
@@ -64,7 +57,7 @@ bool FrameBuffer::begin(uint32_t _w, uint32_t _h) {
     if(buffer) {
         if((size < newSize)) {
             //DEBUG_VNC("[FrameBuffer::begin] (size < newSize)  realloc... <--------------------------------------\n");
-            delay(10);
+            //delay(10);
             uint8_t * newbuffer = (uint8_t *) realloc(buffer, newSize);
             //DEBUG_VNC("[FrameBuffer::begin] newbuffer: 0x%08X\n", newbuffer);
             if(!newbuffer) {
@@ -130,8 +123,7 @@ void FrameBuffer::draw_rect(uint32_t x, uint32_t y, uint32_t rw, uint32_t rh, ui
     while(rh--) {
         xc = rw;
         while(xc--) {
-            *ptr = color;
-            ptr++;
+            *ptr++ = color;
         }
         ptr += offset;
     }

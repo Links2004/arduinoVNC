@@ -27,10 +27,6 @@
 
 #include <Arduino.h>
 
-#include <stdio.h>
-#include <unistd.h>
-#include <inttypes.h>
-#include <stdint.h>
 #include <math.h>
 
 #include "VNC.h"
@@ -238,15 +234,16 @@ void arduinoVNC::loop(void) {
         // reset dict
         memset(zout, 0, ZRLE_OUTPUT_BUFFER);
         zout_next = zout;
-#endif
 
 #ifdef VNC_ZRLE
         zout_read = zout;
 #endif // #ifdef VNC_ZRLE
 
+#endif
+
     } else {
         if(!rfb_handle_server_message()) {
-            //DEBUG_VNC("rfb_handle_server_message faild.\n");
+            //DEBUG_VNC("rfb_handle_server_message failed.\n");
             return;
         }
 
@@ -268,7 +265,12 @@ void arduinoVNC::loop(void) {
 }
 
 int arduinoVNC::forceFullUpdate(void) {
-    return rfb_send_update_request(1);
+    return rfb_send_update_request(0);
+}
+
+void arduinoVNC::setOffset(uint16_t x, uint16_t y) {
+    opt.h_offset = x;
+    opt.v_offset = y;
 }
 
 void arduinoVNC::setMaxFPS(uint16_t fps) {
