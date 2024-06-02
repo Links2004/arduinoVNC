@@ -195,6 +195,8 @@ class arduinoVNC {
         void mouseEvent(uint16_t x, uint16_t y, uint8_t buttonMask);
         void keyEvent(int key, int keyMask);
 
+        void setOffset(uint16_t x, uint16_t y);
+
     private:
         bool onlyFullUpdate;
         int port;
