@@ -1,4 +1,4 @@
-VNC Client for Arduino [![Build Status](https://github.com/Links2004/arduinoVNC/workflows/CI/badge.svg?branch=master)](https://github.com/Links2004/arduinoVNC/actions?query=workflow%3ACI+branch%3Amaster)
+VNC Client for Arduino [![CI](https://github.com/Links2004/arduinoVNC/actions/workflows/main.yml/badge.svg)](https://github.com/Links2004/arduinoVNC/actions/workflows/main.yml)
 ===========================================
 
 a VNC Client for Arduino based on rfbproto.
