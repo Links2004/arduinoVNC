@@ -71,7 +71,7 @@
 #define VNC_COMPRESS_LEVEL 4
 
 /// VNC Pseudo-encodes
-#define SET_DESKTOP_SIZE // Set resolution according to display resolution
+//#define SET_DESKTOP_SIZE // Set resolution according to display resolution
 
 #endif /* VNC_USER_SETUP_LOADED */
 
