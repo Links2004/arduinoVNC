@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: ["esp32:esp32:esp32", "esp8266:esp8266:nodemcuv2"]
-        example: ["examples/VNC_ILI941", "examples/VNC_ILI941_touch", "examples/ST7789", "examples/VNC_ST7796_LovyanGFX"]
+        example: ["examples/VNC_ILI9341", "examples/VNC_ILI9341_touch", "examples/VNC_ST7789", "examples/VNC_ST7796_LovyanGFX"]
         exclude:
           - platform: "esp32:esp32:esp32"
             example: "examples/VNC_ILI941_touch"
