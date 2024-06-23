@@ -23,7 +23,7 @@ jobs:
         example: ["examples/VNC_ILI9341", "examples/VNC_ILI9341_touch", "examples/VNC_ST7789", "examples/VNC_ST7796_LovyanGFX"]
         exclude:
           - platform: "esp32:esp32:esp32"
-            example: "examples/VNC_ILI941_touch"
+            example: "examples/VNC_ILI9341_touch"
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
