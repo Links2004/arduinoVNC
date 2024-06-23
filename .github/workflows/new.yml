@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["esp32:esp32:esp32", "esp8266:esp8266:esp8266"]
+        platform: ["esp32:esp32:esp32", "esp8266:esp8266:nodemcuv2"]
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -32,6 +32,7 @@ jobs:
             - source-url: http://arduino.esp8266.com/stable/package_esp8266com_index.json
               name: "esp8266:esp8266"
           libraries: |
+            - source-path: ./
             - source-url: https://github.com/adafruit/Adafruit-GFX-Library.git
             - source-url: https://github.com/adafruit/Adafruit_BusIO.git
             - source-url: https://github.com/Links2004/XPT2046.git
