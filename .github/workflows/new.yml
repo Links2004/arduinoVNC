@@ -20,6 +20,10 @@ jobs:
       fail-fast: false
       matrix:
         platform: ["esp32:esp32:esp32", "esp8266:esp8266:nodemcuv2"]
+        example: ["examples/VNC_ILI941", "examples/VNC_ILI941_touch", "examples/ST7789", "examples/VNC_ST7796_LovyanGFX"]
+        exclude:
+          - platform: "esp32:esp32:esp32"
+            example: "examples/VNC_ILI941_touch"
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -39,3 +43,4 @@ jobs:
             - source-url: https://github.com/Links2004/Adafruit_ILI9341.git
             - source-url: https://github.com/Bodmer/TFT_eSPI.git
             - source-url: https://github.com/lovyan03/LovyanGFX.git
+          sketch-paths: ${{ matrix.example }}
