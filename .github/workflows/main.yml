@@ -14,185 +14,33 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-
-  prepare_example_json:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: generate examples
-        id: set-matrix
-        run: |
-          source $GITHUB_WORKSPACE/travis/common.sh
-          cd $GITHUB_WORKSPACE
-
-          echo -en "matrix=" >> $GITHUB_OUTPUT
-          echo -en "[" >> $GITHUB_OUTPUT
-
-          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples esp8266 0.35.3 esp8266:esp8266:generic:xtal=80,vt=flash,exception=disabled,stacksmash=disabled,ssl=all,mmu=3232,non32xfer=fast,ResetMethod=nodemcu,CrystalFreq=26,FlashFreq=80,FlashMode=qio,eesz=4M2M,led=2,sdk=nonosdk_190703,ip=lm2f,dbg=Serial1,lvl=SSL,wipe=none,baud=115200 >> $GITHUB_OUTPUT
-          echo -en "," >> $GITHUB_OUTPUT
-
-          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples esp8266 0.35.3 esp8266:esp8266:generic:xtal=80,vt=flash,exception=disabled,stacksmash=disabled,ssl=all,mmu=3232,non32xfer=fast,ResetMethod=nodemcu,CrystalFreq=26,FlashFreq=80,FlashMode=qio,eesz=4M2M,led=2,sdk=nonosdk_190703,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=115200 >> $GITHUB_OUTPUT
-          echo -en "," >> $GITHUB_OUTPUT
-
-          get_sketches_json_matrix arduino $GITHUB_WORKSPACE/examples esp32 0.35.3 esp32:esp32:esp32:FlashFreq=80 >> $GITHUB_OUTPUT
-
-          echo -en "]" >> $GITHUB_OUTPUT
-          echo >> $GITHUB_OUTPUT
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-
-  prepare_ide:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        CLI_VERSION: [0.35.3]
-    env:
-      CLI_VERSION: ${{ matrix.CLI_VERSION }}
-      ARDUINO_DIRECTORIES_DATA: /home/runner/arduino_ide
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Get hash
-        id: get-hash
-        run: |
-          echo "hash=$(/bin/date -u "+%Y%m%d")-$(md5sum ".github/workflows/main.yml" | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - uses: actions/cache@v4
-        id: cache_all
-        with:
-          path: |
-            /home/runner/arduino_ide
-            /home/runner/Arduino
-          key: ${{ runner.os }}-${{ steps.get-hash.outputs.hash }}-${{ matrix.CLI_VERSION }}-cli
-
-      - name: download IDE
-        if: steps.cache_all.outputs.cache-hit != 'true'
-        run: |
-          wget https://github.com/arduino/arduino-cli/releases/download/v${CLI_VERSION}/arduino-cli_${CLI_VERSION}_Linux_64bit.tar.gz -q
-          tar xf arduino-cli_${CLI_VERSION}_Linux_64bit.tar.gz
-          mkdir -p $ARDUINO_DIRECTORIES_DATA
-          mv arduino-cli $ARDUINO_DIRECTORIES_DATA/
-
-      - name: download cores
-        if: steps.cache_all.outputs.cache-hit != 'true'
-        run: |
-          export PATH="$ARDUINO_DIRECTORIES_DATA:$PATH"
-          source $GITHUB_WORKSPACE/travis/common.sh
-          get_core_cli
-
-      - name: download ArduinoJson
-        if: steps.cache_all.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p $HOME/Arduino/libraries
-          wget https://github.com/bblanchon/ArduinoJson/archive/6.x.zip -q
-          unzip 6.x.zip
-          mv ArduinoJson-6.x $HOME/Arduino/libraries/ArduinoJson
-
-      - name: download Adafruit-GFX-Library
-        if: steps.cache_all.outputs.cache-hit != 'true'
-        run: |
-          source $GITHUB_WORKSPACE/travis/common.sh
-          clone_library https://github.com/adafruit/Adafruit-GFX-Library
-
-      - name: download Adafruit_BusIO
-        if: steps.cache_all.outputs.cache-hit != 'true'
-        run: |
-          source $GITHUB_WORKSPACE/travis/common.sh
-          clone_library https://github.com/adafruit/Adafruit_BusIO.git
-
-      - name: download XPT2046
-        if: steps.cache_all.outputs.cache-hit != 'true'
-        run: |
-          source $GITHUB_WORKSPACE/travis/common.sh
-          clone_library https://github.com/Links2004/XPT2046
-
-      - name: download Adafruit_ILI9341
-        if: steps.cache_all.outputs.cache-hit != 'true'
-        run: |
-          source $GITHUB_WORKSPACE/travis/common.sh
-          clone_library https://github.com/Links2004/Adafruit_ILI9341
-
-      - name: download TFT_eSPI
-        if: steps.cache_all.outputs.cache-hit != 'true'
-        run: |
-          source $GITHUB_WORKSPACE/travis/common.sh
-          clone_library https://github.com/Bodmer/TFT_eSPI
-
-      - name: download LovyanGFX
-        if: steps.cache_all.outputs.cache-hit != 'true'
-        run: |
-          source $GITHUB_WORKSPACE/travis/common.sh
-          clone_library https://github.com/lovyan03/LovyanGFX
-
   build:
-    needs: [prepare_ide, prepare_example_json]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.prepare_example_json.outputs.matrix) }}
-    env:
-      CPU: ${{ matrix.cpu }}
-      BOARD: ${{ matrix.board }}
-      IDE_VERSION: ${{ matrix.ideversion }}
-      SKETCH: ${{ matrix.sketch }}
-      ARDUINO_DIRECTORIES_DATA: /home/runner/arduino_ide
+        platform: ["esp32:esp32:esp32", "esp8266:esp8266:nodemcuv2"]
+        example: ["examples/VNC_ILI9341", "examples/VNC_ILI9341_touch", "examples/VNC_ST7789", "examples/VNC_ST7796_LovyanGFX"]
+        exclude:
+          - platform: "esp32:esp32:esp32"
+            example: "examples/VNC_ILI9341_touch"
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - uses: actions/checkout@v4
-
-      - name: install libgtk2.0-0
-        run: |
-          sudo apt-get install -y libgtk2.0-0
-
-      - name: Get hash
-        id: get-hash
-        run: |
-          echo "hash=$(/bin/date -u "+%Y%m%d")-$(md5sum ".github/workflows/main.yml" | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - uses: actions/cache@v4
-        id: cache_all
+      - uses: arduino/compile-sketches@v1
         with:
-          path: |
-            /home/runner/arduino_ide
-            /home/runner/Arduino
-          key: ${{ runner.os }}-${{ steps.get-hash.outputs.hash }}-${{ matrix.cliversion }}-cli
-
-      - name: install python serial
-        if: matrix.cpu == 'esp32'
-        run: |
-          sudo pip3 install pyserial
-          sudo pip install pyserial
-
-      - name: test IDE
-        run: |
-          export PATH="$ARDUINO_DIRECTORIES_DATA:$PATH"
-          which arduino-cli
-
-      - name: copy code
-        run: |
-          mkdir -p $HOME/Arduino/libraries/
-          cp -r $GITHUB_WORKSPACE $HOME/Arduino/libraries/arduinoVNC
-
-      - name: build example
-        timeout-minutes: 20
-        run: |
-          set -ex
-          export PATH="$HOME/arduino_ide:$PATH"
-          source $GITHUB_WORKSPACE/travis/common.sh
-          cd $GITHUB_WORKSPACE
-          build_sketch_cli "$SKETCH" "$BOARD"
-
-  done:
-    needs: [prepare_ide, prepare_example_json, build]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Done
-        run: |
-          echo DONE
+          fqbn: ${{ matrix.platform }}
+          platforms: |
+            - name: "esp32:esp32"
+            - source-url: http://arduino.esp8266.com/stable/package_esp8266com_index.json
+              name: "esp8266:esp8266"
+          libraries: |
+            - source-path: ./
+            - source-url: https://github.com/adafruit/Adafruit-GFX-Library.git
+            - source-url: https://github.com/adafruit/Adafruit_BusIO.git
+            - source-url: https://github.com/Links2004/XPT2046.git
+            - source-url: https://github.com/Links2004/Adafruit_ILI9341.git
+            - source-url: https://github.com/Bodmer/TFT_eSPI.git
+            - source-url: https://github.com/lovyan03/LovyanGFX.git
+          sketch-paths: ${{ matrix.example }}
