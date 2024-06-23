@@ -44,3 +44,10 @@ jobs:
             - source-url: https://github.com/Bodmer/TFT_eSPI.git
             - source-url: https://github.com/lovyan03/LovyanGFX.git
           sketch-paths: ${{ matrix.example }}
+  done:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Done
+        run: |
+          echo DONE
